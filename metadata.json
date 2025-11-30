@@ -1,0 +1,8 @@
+{
+  "name": "ShopOS - AI POS System",
+  "description": "A multilingual, AI-powered POS and Inventory system for African businesses.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
