@@ -41,7 +41,7 @@ export const AIChat: React.FC = () => {
     const shopName = settings?.businessName || 'Unknown Shop';
     
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: text, timestamp: Date.now() }]);
+    setMessages(prev => [...prev, { role: 'user', text: String(text || ''), timestamp: Date.now() }]);
     setLoading(true);
 
     try {
@@ -65,7 +65,7 @@ export const AIChat: React.FC = () => {
 
       setMessages(prev => [...prev, { 
         role: 'ai', 
-        text: parsedResponse.text, 
+        text: parsedResponse.text || 'Sorry, I could not generate a response.', 
         action: parsedResponse.type === 'action' ? parsedResponse.action : undefined,
         timestamp: Date.now() 
       }]);
@@ -152,7 +152,7 @@ export const AIChat: React.FC = () => {
             }`}>
               {/* Markdown-ish rendering for simple tables/bold */}
               <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ 
-                  __html: msg.text
+                  __html: (msg.text || '')
                     .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') // Bold
                     .replace(/\n/g, '<br/>') // Line breaks
                 }} 
@@ -199,7 +199,7 @@ export const AIChat: React.FC = () => {
         <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-10"></div>
         <div className="p-3 overflow-x-auto whitespace-nowrap scrollbar-hide">
            <div className="grid grid-rows-2 grid-flow-col gap-2 w-max">
-               {prompts.map((p, i) => (
+               {prompts.filter(p => p && typeof p === 'string').map((p, i) => (
                    <button 
                        key={i} 
                        onClick={() => handleSend(p)}

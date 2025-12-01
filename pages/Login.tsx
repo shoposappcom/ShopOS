@@ -20,9 +20,31 @@ export const Login: React.FC = () => {
   const [country, setCountry] = useState('Nigeria');
   const [state, setState] = useState('Abuja (FCT)');
   const [regPassword, setRegPassword] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState({
+    hasLength: false,
+    hasUpperCase: false,
+    hasLowerCase: false,
+    hasNumber: false,
+    hasSpecialChar: false
+  });
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Password strength checker
+  const checkPasswordStrength = (password: string) => {
+    setPasswordStrength({
+      hasLength: password.length >= 8,
+      hasUpperCase: /[A-Z]/.test(password),
+      hasLowerCase: /[a-z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecialChar: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+    });
+  };
+  
+  const isPasswordStrong = () => {
+    return Object.values(passwordStrength).every(Boolean);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +67,12 @@ export const Login: React.FC = () => {
     e.preventDefault();
     if (!fullName || !email || !shopName || !regPassword) {
         setError("Please fill all required fields");
+        return;
+    }
+    
+    // Check password strength
+    if (!isPasswordStrong()) {
+        setError("Password does not meet requirements. Please check the requirements below.");
         return;
     }
 
@@ -214,10 +242,40 @@ export const Login: React.FC = () => {
                             className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium text-gray-900"
                             placeholder="••••••••"
                             value={regPassword}
-                            onChange={e => setRegPassword(e.target.value)}
+                            onChange={e => {
+                                setRegPassword(e.target.value);
+                                checkPasswordStrength(e.target.value);
+                            }}
                             required
                         />
                     </div>
+                    {regPassword && (
+                        <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">Password Requirements:</p>
+                            <ul className="space-y-1">
+                                <li className={`text-xs flex items-center gap-2 ${passwordStrength.hasLength ? 'text-green-600' : 'text-gray-500'}`}>
+                                    <CheckCircle className={`w-3 h-3 ${passwordStrength.hasLength ? 'text-green-600' : 'text-gray-400'}`} />
+                                    At least 8 characters
+                                </li>
+                                <li className={`text-xs flex items-center gap-2 ${passwordStrength.hasUpperCase ? 'text-green-600' : 'text-gray-500'}`}>
+                                    <CheckCircle className={`w-3 h-3 ${passwordStrength.hasUpperCase ? 'text-green-600' : 'text-gray-400'}`} />
+                                    At least 1 capital letter
+                                </li>
+                                <li className={`text-xs flex items-center gap-2 ${passwordStrength.hasLowerCase ? 'text-green-600' : 'text-gray-500'}`}>
+                                    <CheckCircle className={`w-3 h-3 ${passwordStrength.hasLowerCase ? 'text-green-600' : 'text-gray-400'}`} />
+                                    At least 1 lowercase letter
+                                </li>
+                                <li className={`text-xs flex items-center gap-2 ${passwordStrength.hasNumber ? 'text-green-600' : 'text-gray-500'}`}>
+                                    <CheckCircle className={`w-3 h-3 ${passwordStrength.hasNumber ? 'text-green-600' : 'text-gray-400'}`} />
+                                    At least 1 number
+                                </li>
+                                <li className={`text-xs flex items-center gap-2 ${passwordStrength.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}`}>
+                                    <CheckCircle className={`w-3 h-3 ${passwordStrength.hasSpecialChar ? 'text-green-600' : 'text-gray-400'}`} />
+                                    At least 1 special character (!@#$%^&*...)
+                                </li>
+                            </ul>
+                        </div>
+                    )}
                 </div>
 
                 {error && <p className="text-xs text-red-500 text-center font-bold bg-red-50 py-2 rounded-lg">{error}</p>}
