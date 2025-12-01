@@ -482,9 +482,45 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted, onLogin }) => {
                 <div>
                     <h4 className="font-bold text-slate-900 mb-6">Company</h4>
                     <ul className="space-y-4 text-slate-500">
-                        <li><a href="#" className="hover:text-emerald-600 transition-colors">About</a></li>
-                        <li><a href="#" className="hover:text-emerald-600 transition-colors">Contact</a></li>
-                        <li><a href="#" className="hover:text-emerald-600 transition-colors">Privacy Policy</a></li>
+                        <li>
+                            <a 
+                                href="/about" 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    window.history.pushState({}, '', '/about');
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }}
+                                className="hover:text-emerald-600 transition-colors cursor-pointer"
+                            >
+                                About
+                            </a>
+                        </li>
+                        <li>
+                            <a 
+                                href="/contact" 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    window.history.pushState({}, '', '/contact');
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }}
+                                className="hover:text-emerald-600 transition-colors cursor-pointer"
+                            >
+                                Contact
+                            </a>
+                        </li>
+                        <li>
+                            <a 
+                                href="/privacy" 
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    window.history.pushState({}, '', '/privacy');
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }}
+                                className="hover:text-emerald-600 transition-colors cursor-pointer"
+                            >
+                                Privacy Policy
+                            </a>
+                        </li>
                     </ul>
                 </div>
             </div>

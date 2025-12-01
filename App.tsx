@@ -15,6 +15,9 @@ import { Transactions } from './pages/Transactions';
 import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminSetup } from './pages/AdminSetup';
+import { About } from './pages/About';
+import { Contact } from './pages/Contact';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { AIChat } from './components/AIChat';
 import { isAdminAuthenticated } from './services/adminAuth';
 import { hasAdminCredentials } from './services/adminStorage';
@@ -23,43 +26,53 @@ const AppContent: React.FC = () => {
   const { currentUser, isAccountLocked, checkSubscription, getSubscription } = useStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showLogin, setShowLogin] = useState(false);
+  const [currentRoute, setCurrentRoute] = useState<string>('');
   const [adminView, setAdminView] = useState<'setup' | 'login' | 'dashboard' | null>(null);
   const [adminViewInitialized, setAdminViewInitialized] = useState(false);
   
-  // Initialize admin view on mount
+  // Initialize routing based on URL
   useEffect(() => {
-    const initializeAdminView = async () => {
+    const initializeRouting = async () => {
       const path = window.location.pathname;
-      console.log('🔍 Initializing admin view for path:', path);
+      console.log('🔍 Initializing routing for path:', path);
+      setCurrentRoute(path);
       
+      // Handle admin routes
       if (path === '/traceroot/admin' || path.startsWith('/traceroot/admin/')) {
-        // Check if admin credentials exist
         const hasCredentials = await hasAdminCredentials();
-        console.log('🔍 Admin credentials check result:', hasCredentials);
         
         if (!hasCredentials) {
-          console.log('📝 No admin credentials found - showing setup page');
           setAdminView('setup');
         } else if (isAdminAuthenticated()) {
-          console.log('✅ Admin authenticated - showing dashboard');
           setAdminView('dashboard');
         } else {
-          console.log('🔐 Admin credentials exist but not authenticated - showing login');
           setAdminView('login');
         }
       } else {
         setAdminView(null);
       }
+      
+      // Handle public routes
+      if (path === '/login') {
+        setShowLogin(true);
+      } else if (path === '/about' || path === '/contact' || path === '/privacy') {
+        // Public pages - keep current route state
+      } else if (!path.startsWith('/traceroot/admin')) {
+        setShowLogin(false);
+      }
+      
       setAdminViewInitialized(true);
     };
     
-    initializeAdminView();
+    initializeRouting();
   }, []);
   
   // Listen for URL changes
   useEffect(() => {
     const handleLocationChange = async () => {
       const path = window.location.pathname;
+      setCurrentRoute(path);
+      
       if (path === '/traceroot/admin' || path.startsWith('/traceroot/admin/')) {
         const hasCredentials = await hasAdminCredentials();
         if (!hasCredentials) {
@@ -71,6 +84,15 @@ const AppContent: React.FC = () => {
         }
       } else {
         setAdminView(null);
+      }
+      
+      // Handle public routes
+      if (path === '/login') {
+        setShowLogin(true);
+      } else if (path === '/about' || path === '/contact' || path === '/privacy') {
+        setShowLogin(false);
+      } else if (!path.startsWith('/traceroot/admin')) {
+        setShowLogin(false);
       }
     };
     
@@ -85,8 +107,14 @@ const AppContent: React.FC = () => {
       if (subscription) {
         checkSubscription();
       }
+      // Remove /login from URL if user is logged in
+      if (currentRoute === '/login') {
+        window.history.pushState({}, '', '/');
+        setCurrentRoute('/');
+        setShowLogin(false);
+      }
     }
-  }, [currentUser]);
+  }, [currentUser, currentRoute]);
 
   // Periodic subscription check (every 2 minutes) to ensure UI locks when expired
   useEffect(() => {
@@ -133,12 +161,34 @@ const AppContent: React.FC = () => {
     }} />;
   }
 
+  // Handle public pages (accessible without login)
+  if (currentRoute === '/about') {
+    return <About />;
+  }
+  
+  if (currentRoute === '/contact') {
+    return <Contact />;
+  }
+  
+  if (currentRoute === '/privacy') {
+    return <PrivacyPolicy />;
+  }
+
   // If NOT logged in:
   if (!currentUser) {
-    if (showLogin) {
+    if (showLogin || currentRoute === '/login') {
       return <Login />;
     }
-    return <Landing onGetStarted={() => setShowLogin(true)} onLogin={() => setShowLogin(true)} />;
+    return <Landing 
+      onGetStarted={() => {
+        setShowLogin(true);
+        window.history.pushState({}, '', '/login');
+      }} 
+      onLogin={() => {
+        setShowLogin(true);
+        window.history.pushState({}, '', '/login');
+      }} 
+    />;
   }
 
   // If account is locked (subscription expired), show only Payment page
