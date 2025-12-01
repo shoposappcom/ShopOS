@@ -9,7 +9,7 @@ import {
 } from '../services/adminStorage';
 import { getTrialConfig, updateTrialConfig, setTrialDays, disableTrial, enableTrial } from '../services/trialConfig';
 import { getTotalRevenue } from '../services/paymentTracking';
-import { getGeminiApiKey, updateGeminiApiKey, getPaystackPublicKey, getPaystackSecretKey, getPaystackMode, updatePaystackKeys } from '../services/adminStorage';
+import { getGeminiApiKeySync, updateGeminiApiKey, getPaystackPublicKey, getPaystackSecretKey, getPaystackMode, updatePaystackKeys } from '../services/adminStorage';
 import { 
   getAllCouponsList, 
   createCoupon, 
@@ -1640,7 +1640,7 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      {getGeminiApiKey() ? (
+                      {getGeminiApiKeySync() ? (
                         <span className="text-green-600">API Key is configured</span>
                       ) : (
                         <span className="text-orange-600">API Key is not configured</span>
@@ -2087,7 +2087,7 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      {getGeminiApiKey() ? (
+                      {getGeminiApiKeySync() ? (
                         <span className="text-green-600">API Key is configured</span>
                       ) : (
                         <span className="text-orange-600">API Key is not configured</span>

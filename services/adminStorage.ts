@@ -475,7 +475,30 @@ export const updateAdminPassword = async (currentPassword: string, newPassword: 
 // API KEY MANAGEMENT
 // ============================================================================
 
-export const getGeminiApiKey = (): string | undefined => {
+export const getGeminiApiKey = async (): Promise<string | undefined> => {
+  // Check Supabase first if online
+  if (isOnline()) {
+    try {
+      const adminConfig = await db.getAdminConfigDb();
+      if (adminConfig?.geminiApiKey) {
+        // Cache to localStorage for offline access
+        const adminData = loadAdminDataFromLocalStorage();
+        adminData.adminConfig.geminiApiKey = adminConfig.geminiApiKey;
+        saveAdminDataToLocalStorage(adminData);
+        return adminConfig.geminiApiKey;
+      }
+    } catch (error) {
+      console.error('❌ Failed to get Gemini API key from Supabase:', error);
+    }
+  }
+  
+  // Fallback to localStorage
+  const adminData = loadAdminDataFromLocalStorage();
+  return adminData.adminConfig.geminiApiKey;
+};
+
+// Synchronous version for backward compatibility (reads from localStorage cache only)
+export const getGeminiApiKeySync = (): string | undefined => {
   const adminData = loadAdminDataFromLocalStorage();
   return adminData.adminConfig.geminiApiKey;
 };

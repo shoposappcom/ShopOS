@@ -5,8 +5,8 @@ import { getGeminiApiKey, isShopAIEnabled, addAIUsageRecord, updateAIUsageRecord
 import { generateUUID } from './supabase/client';
 
 // Get Gemini API Key from admin storage or fallback to environment variable
-const getGeminiApiKeyFromAdmin = (): string | undefined => {
-  const adminKey = getGeminiApiKey();
+const getGeminiApiKeyFromAdmin = async (): Promise<string | undefined> => {
+  const adminKey = await getGeminiApiKey();
   if (adminKey) {
     return adminKey;
   }
@@ -31,7 +31,7 @@ export const generateAIResponse = async (
     });
   }
 
-  const apiKey = getGeminiApiKeyFromAdmin();
+  const apiKey = await getGeminiApiKeyFromAdmin();
   
   if (!apiKey) {
     return JSON.stringify({
