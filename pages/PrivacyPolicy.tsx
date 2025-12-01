@@ -51,8 +51,6 @@ export const PrivacyPolicy: React.FC = () => {
               <h3 className="text-xl font-semibold text-gray-900 mb-3">Business Information</h3>
               <ul className="list-disc list-inside text-gray-700 space-y-2 mb-4">
                 <li>Business name, address, and contact details</li>
-                <li>Tax identification numbers (if provided)</li>
-                <li>Business registration information</li>
               </ul>
 
               <h3 className="text-xl font-semibold text-gray-900 mb-3">User Account Information</h3>

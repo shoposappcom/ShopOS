@@ -309,7 +309,7 @@ export const GiftCards: React.FC = () => {
           <>
             {/* Small Icons View */}
             {viewMode === 'small' && (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 sm:gap-4">
                 {displayedCards.map(card => {
                   const themeClass = GIFT_CARD_THEMES[card.theme];
                   const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
@@ -339,7 +339,7 @@ export const GiftCards: React.FC = () => {
 
             {/* Large Icons View (Current) */}
             {viewMode === 'large' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
                 {displayedCards.map(card => {
                   const themeClass = GIFT_CARD_THEMES[card.theme];
                   const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
@@ -387,13 +387,13 @@ export const GiftCards: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="mt-3 flex justify-between items-center px-2">
+                      <div className="mt-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 px-2">
                         <div>
                           <span className={`text-xs font-bold px-2 py-0.5 rounded ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                             {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
                           </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <button onClick={() => downloadCardImage(card)} className="p-2 bg-white hover:bg-blue-50 text-blue-600 rounded-full shadow-sm border border-gray-200 transition-all" title="Download Image">
                             <Download className="w-4 h-4" />
                           </button>
@@ -419,8 +419,8 @@ export const GiftCards: React.FC = () => {
                   const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
                   const isActive = card.status === 'active' && card.balance > 0 && !isExpired;
                   return (
-                    <div key={card.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all flex items-center gap-4">
-                      <div className="w-32 flex-shrink-0">
+                    <div key={card.id} className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                      <div className="w-full sm:w-32 flex-shrink-0">
                         <div id={`card-${card.id}`} ref={el => cardRefs.current[card.id] = el}>
                           <div className={`relative w-full aspect-[2/1] rounded-lg overflow-hidden shadow-md bg-gray-900 text-white ${!isActive ? 'opacity-70 grayscale' : ''}`}>
                             <div className={`absolute inset-0 bg-gradient-to-br ${themeClass}`}></div>
@@ -431,9 +431,9 @@ export const GiftCards: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 w-full sm:w-auto">
                         <h3 className="font-bold text-gray-800 text-sm mb-1">Code: {card.code}</h3>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-gray-500">
                           <span>Initial: {settings.currency}{card.initialValue.toLocaleString()}</span>
                           <span>Balance: {settings.currency}{card.balance.toLocaleString()}</span>
                           {card.expiresAt && (
@@ -441,11 +441,11 @@ export const GiftCards: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 flex-shrink-0 w-full sm:w-auto">
                         <span className={`text-xs font-bold px-2 py-1 rounded ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                           {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
                         </span>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <button onClick={() => downloadCardImage(card)} className="p-2 bg-white hover:bg-blue-50 text-blue-600 rounded-lg transition-colors border border-gray-200" title="Download">
                             <Download className="w-4 h-4" />
                           </button>
@@ -465,7 +465,7 @@ export const GiftCards: React.FC = () => {
 
             {/* Details View */}
             {viewMode === 'details' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {displayedCards.map(card => {
                   const themeClass = GIFT_CARD_THEMES[card.theme];
                   const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
@@ -584,15 +584,15 @@ export const GiftCards: React.FC = () => {
 
       {/* Creation Modal */}
       {showModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
-             <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+             <div className="bg-white rounded-2xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100 max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-gray-100 bg-white sticky top-0 z-10">
                     <h3 className="text-xl font-bold text-gray-800">{t('createGiftCard')}</h3>
                 </div>
                 
-                <div className="p-6 space-y-8">
+                <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
                     {/* Live Preview of New Card */}
-                    <div className="relative w-full aspect-[2/1] rounded-2xl overflow-hidden shadow-2xl transform scale-100 origin-center bg-gray-900 text-white">
+                    <div className="relative w-full aspect-[2/1] rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl transform scale-100 origin-center bg-gray-900 text-white">
                         <div className={`absolute inset-0 bg-gradient-to-br ${GIFT_CARD_THEMES[createTheme]}`}></div>
                         
                         {(createTheme === 'standard' || createTheme === 'dark') && (

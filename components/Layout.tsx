@@ -154,14 +154,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
         `}</style>
         <div className="bg-white border-t border-gray-100 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.03)] pb-1">
           <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex items-center h-16 min-w-max px-2">
+            <div className={`flex items-center h-16 ${visibleNavItems.length <= 5 ? 'justify-around w-full' : 'min-w-max px-2'}`}>
               {visibleNavItems.map(item => {
                 const isActive = activeTab === item.id;
+                const itemWidth = visibleNavItems.length <= 5 ? 'flex-1' : 'min-w-[70px]';
                 return (
                   <button
                     key={item.id}
                     onClick={() => onTabChange(item.id)}
-                    className={`relative flex flex-col items-center justify-center min-w-[70px] h-full px-2 transition-all duration-200 ${
+                    className={`relative flex flex-col items-center justify-center ${itemWidth} h-full px-2 transition-all duration-200 ${
                       isActive ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
                     }`}
                   >
