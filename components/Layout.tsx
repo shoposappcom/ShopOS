@@ -141,28 +141,39 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation - Floating Style */}
+      {/* Mobile Bottom Navigation - Scrollable Horizontal */}
       <nav className="fixed bottom-0 w-full z-40 sm:hidden pb-safe">
+        <style>{`
+          .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+          }
+          .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}</style>
         <div className="bg-white border-t border-gray-100 shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.03)] pb-1">
-          <div className="flex justify-around items-center h-16">
-            {visibleNavItems.slice(0, 5).map(item => { // Limit to 5 on mobile
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onTabChange(item.id)}
-                  className={`relative flex flex-col items-center justify-center w-full h-full transition-all duration-200 ${
-                    isActive ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
-                  }`}
-                >
-                  {isActive && (
-                    <span className="absolute -top-[1px] w-12 h-1 bg-green-600 rounded-b-full shadow-sm" />
-                  )}
-                  <item.icon className={`w-6 h-6 mb-1 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
-                  <span className="text-[10px] font-medium tracking-wide">{t(item.labelKey)}</span>
-                </button>
-              );
-            })}
+          <div className="overflow-x-auto scrollbar-hide">
+            <div className="flex items-center h-16 min-w-max px-2">
+              {visibleNavItems.map(item => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onTabChange(item.id)}
+                    className={`relative flex flex-col items-center justify-center min-w-[70px] h-full px-2 transition-all duration-200 ${
+                      isActive ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    {isActive && (
+                      <span className="absolute -top-[1px] left-1/2 transform -translate-x-1/2 w-12 h-1 bg-green-600 rounded-b-full shadow-sm" />
+                    )}
+                    <item.icon className={`w-5 h-5 mb-0.5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
+                    <span className="text-[9px] font-medium tracking-wide whitespace-nowrap">{t(item.labelKey)}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </nav>

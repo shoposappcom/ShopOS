@@ -20,6 +20,7 @@ export const Login: React.FC = () => {
   const [country, setCountry] = useState('Nigeria');
   const [state, setState] = useState('Abuja (FCT)');
   const [regPassword, setRegPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordStrength, setPasswordStrength] = useState({
     hasLength: false,
     hasUpperCase: false,
@@ -65,8 +66,14 @@ export const Login: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !email || !shopName || !regPassword) {
+    if (!fullName || !email || !shopName || !regPassword || !confirmPassword) {
         setError("Please fill all required fields");
+        return;
+    }
+    
+    // Check password match
+    if (regPassword !== confirmPassword) {
+        setError("Passwords do not match. Please try again.");
         return;
     }
     
@@ -243,8 +250,13 @@ export const Login: React.FC = () => {
                             placeholder="••••••••"
                             value={regPassword}
                             onChange={e => {
-                                setRegPassword(e.target.value);
-                                checkPasswordStrength(e.target.value);
+                                const newPassword = e.target.value;
+                                setRegPassword(newPassword);
+                                checkPasswordStrength(newPassword);
+                                // Clear confirm password if it doesn't match the new password
+                                if (confirmPassword && confirmPassword !== newPassword) {
+                                    setConfirmPassword('');
+                                }
                             }}
                             required
                         />
@@ -274,6 +286,41 @@ export const Login: React.FC = () => {
                                     At least 1 special character (!@#$%^&*...)
                                 </li>
                             </ul>
+                        </div>
+                    )}
+                </div>
+                <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Confirm Password</label>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <input 
+                            type="password"
+                            className={`w-full pl-9 pr-4 py-2.5 bg-gray-50 border rounded-xl focus:ring-2 outline-none text-sm font-medium text-gray-900 ${
+                                confirmPassword 
+                                    ? (confirmPassword === regPassword 
+                                        ? 'border-green-300 focus:ring-green-500' 
+                                        : 'border-red-300 focus:ring-red-500') 
+                                    : 'border-gray-200 focus:ring-green-500'
+                            }`}
+                            placeholder="••••••••"
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                    {confirmPassword && (
+                        <div className="mt-1">
+                            {confirmPassword === regPassword ? (
+                                <p className="text-xs text-green-600 flex items-center gap-1">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Passwords match
+                                </p>
+                            ) : (
+                                <p className="text-xs text-red-600 flex items-center gap-1">
+                                    <Zap className="w-3 h-3" />
+                                    Passwords do not match
+                                </p>
+                            )}
                         </div>
                     )}
                 </div>
@@ -347,7 +394,19 @@ export const Login: React.FC = () => {
 
           <div className="mt-6 pt-6 border-t border-gray-100 text-center">
              <button 
-                onClick={() => { setIsRegistering(!isRegistering); setError(''); }}
+                onClick={() => { 
+                    setIsRegistering(!isRegistering); 
+                    setError('');
+                    setConfirmPassword('');
+                    setRegPassword('');
+                    setPasswordStrength({
+                        hasLength: false,
+                        hasUpperCase: false,
+                        hasLowerCase: false,
+                        hasNumber: false,
+                        hasSpecialChar: false
+                    });
+                }}
                 className="text-sm font-semibold text-green-600 hover:text-green-700 hover:underline"
              >
                 {isRegistering ? t('alreadyAccount') : t('registerNewShop')}

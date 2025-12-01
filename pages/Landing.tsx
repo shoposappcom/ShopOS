@@ -437,13 +437,18 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted, onLogin }) => {
           </p>
           
           <div className="flex flex-wrap justify-center gap-6">
-            <button className="flex items-center gap-4 bg-slate-950 text-white px-8 py-4 rounded-2xl hover:bg-slate-900 transition-all hover:-translate-y-1 shadow-xl border border-slate-800 group">
+            <a 
+                href="https://aanqdrwwgncigiumtlfz.supabase.co/storage/v1/object/public/app/ShopOS.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 bg-slate-950 text-white px-8 py-4 rounded-2xl hover:bg-slate-900 transition-all hover:-translate-y-1 shadow-xl border border-slate-800 group"
+            >
                 <Smartphone className="w-8 h-8 text-gray-400 group-hover:text-white transition-colors" />
                 <div className="text-left">
                     <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Download</p>
                     <p className="font-bold text-lg leading-none">Android App</p>
                 </div>
-            </button>
+            </a>
             <button className="flex items-center gap-4 bg-white text-slate-900 px-8 py-4 rounded-2xl hover:bg-emerald-50 transition-all hover:-translate-y-1 shadow-xl border border-white group">
                 <Monitor className="w-8 h-8 text-emerald-600 group-hover:scale-110 transition-transform" />
                 <div className="text-left">
