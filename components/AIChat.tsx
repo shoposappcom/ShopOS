@@ -4,9 +4,10 @@ import { generateAIResponse } from '../services/ai';
 import { AI_PROMPTS } from '../constants';
 import { MessageSquare, X, Send, Sparkles, ChevronRight, Zap, CheckCircle2 } from 'lucide-react';
 import { AIMessage, AIAction } from '../types';
+import { isShopAIEnabled } from '../services/adminStorage';
 
 export const AIChat: React.FC = () => {
-  const { t, language, enableAI, updateStock, ...appState } = useStore();
+  const { t, language, updateStock, settings, currentUser, ...appState } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
@@ -22,18 +23,37 @@ export const AIChat: React.FC = () => {
 
   useEffect(scrollToBottom, [messages]);
 
-  // If AI is disabled in settings, don't render the button
-  if (!enableAI) return null;
+  // Check if AI is enabled for this shop
+  const shopId = settings?.shopId;
+  if (!shopId) return null; // Don't show if no shop ID
+  
+  const isAIEnabled = isShopAIEnabled(shopId);
+
+  // If AI is disabled for this shop, don't render the button
+  if (!isAIEnabled) return null;
 
   const handleSend = async (text: string = input) => {
     if (!text.trim()) return;
+    
+    const shopId = settings?.shopId || '';
+    const userId = currentUser?.id || 'unknown';
+    const userName = currentUser?.fullName || 'Unknown User';
+    const shopName = settings?.businessName || 'Unknown Shop';
     
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: text, timestamp: Date.now() }]);
     setLoading(true);
 
     try {
-      const responseStr = await generateAIResponse(text, appState as any, language);
+      const responseStr = await generateAIResponse(
+        text, 
+        appState as any, 
+        language,
+        shopId,
+        userId,
+        userName,
+        shopName
+      );
       let parsedResponse: { type: string, text: string, action?: any };
       
       try {

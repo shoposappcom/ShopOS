@@ -581,7 +581,7 @@ export const Dashboard: React.FC = () => {
                          <p className="font-medium text-gray-800 text-sm">{c.name}</p>
                          <p className="text-xs text-gray-400">{c.phone}</p>
                        </div>
-                       <span className="font-bold text-red-600 text-sm">₦{c.totalDebt.toLocaleString()}</p>
+                       <span className="font-bold text-red-600 text-sm">₦{c.totalDebt.toLocaleString()}</span>
                     </div>
                   ))}
                   {customers.filter(c => !c.isArchived && c.totalDebt > 0).length === 0 && (

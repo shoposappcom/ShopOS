@@ -1,20 +1,61 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { AppState, Language } from '../types';
+import { AppState, Language, AIUsageRecord } from '../types';
+import { getGeminiApiKey, isShopAIEnabled, addAIUsageRecord, updateAIUsageRecord } from './adminStorage';
+import { generateUUID } from './supabase/client';
+
+// Get Gemini API Key from admin storage or fallback to environment variable
+const getGeminiApiKeyFromAdmin = (): string | undefined => {
+  const adminKey = getGeminiApiKey();
+  if (adminKey) {
+    return adminKey;
+  }
+  // Fallback to environment variable for backwards compatibility
+  return process.env.API_KEY || process.env.GEMINI_API_KEY;
+};
 
 export const generateAIResponse = async (
   prompt: string, 
   state: AppState, 
-  language: Language
+  language: Language,
+  shopId: string,
+  userId: string,
+  userName: string,
+  shopName: string
 ): Promise<string> => {
-  if (!process.env.API_KEY) {
+  // Check if shop AI is enabled
+  if (!isShopAIEnabled(shopId)) {
     return JSON.stringify({
-       text: "API Key is missing. Please configure Gemini API Key in the environment.",
+      text: "AI chat is currently disabled for your shop. Please contact support.",
+      type: "text"
+    });
+  }
+
+  const apiKey = getGeminiApiKeyFromAdmin();
+  
+  if (!apiKey) {
+    return JSON.stringify({
+       text: "API Key is missing. Please configure Gemini API Key in the admin settings.",
        type: "text"
     });
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Create usage record BEFORE processing
+  const usageRecordId = generateUUID();
+  const usageRecord: AIUsageRecord = {
+    id: usageRecordId,
+    shopId,
+    shopName,
+    userId,
+    userName,
+    prompt,
+    timestamp: new Date().toISOString()
+  };
+  
+  // Store usage record immediately
+  addAIUsageRecord(usageRecord);
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -225,9 +266,23 @@ export const generateAIResponse = async (
       }
     });
     
-    return response.text || JSON.stringify({ type: "text", text: "I couldn't generate a response." });
+    const responseText = response.text || JSON.stringify({ type: "text", text: "I couldn't generate a response." });
+    
+    // Update usage record with response
+    updateAIUsageRecord(usageRecordId, {
+      response: responseText
+    });
+    
+    return responseText;
   } catch (error) {
     console.error("Gemini Error:", error);
-    return JSON.stringify({ type: "text", text: "Sorry, I am having trouble connecting to the AI service right now. Please check your internet connection." });
+    const errorResponse = JSON.stringify({ type: "text", text: "Sorry, I am having trouble connecting to the AI service right now. Please check your internet connection." });
+    
+    // Update usage record with error
+    updateAIUsageRecord(usageRecordId, {
+      response: errorResponse
+    });
+    
+    return errorResponse;
   }
 };

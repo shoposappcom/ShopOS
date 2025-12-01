@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Scanner Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        #video {
+            width: 100%;
+            max-width: 640px;
+            border: 2px solid #333;
+            margin: 20px 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #f0f0f0;
+        }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        .info { background: #e3f2fd; color: #1565c0; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Barcode Scanner Diagnostic Test</h1>
+    
+    <div id="status" class="status info">
+        Status: Ready to test
+    </div>
+
+    <button onclick="startTest()">Start Camera & Scanner</button>
+    <button onclick="stopTest()">Stop</button>
+
+    <video id="video" autoplay playsinline></video>
+
+    <h3>Scan Results:</h3>
+    <div id="results">No scans yet...</div>
+
+    <h3>Debug Log:</h3>
+    <div id="log" style="font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; background: #1e1e1e; color: #00ff00; padding: 10px; border-radius: 5px;"></div>
+
+    <script type="module">
+        import { BarcodeDetector } from 'https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/es/ponyfill.min.js';
+
+        const video = document.getElementById('video');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+        const logDiv = document.getElementById('log');
+        
+        let stream = null;
+        let detector = null;
+        let animationFrame = null;
+        let scannedCodes = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff5555' : type === 'success' ? '#50fa7b' : '#8be9fd';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = 'Status: ' + message;
+            statusDiv.className = 'status ' + type;
+            log(message, type);
+        }
+
+        window.startTest = async function() {
+            try {
+                updateStatus('Checking BarcodeDetector support...', 'info');
+                
+                // Check supported formats
+                const formats = await BarcodeDetector.getSupportedFormats();
+                log(`✅ Supported formats: ${formats.join(', ')}`, 'success');
+
+                // Initialize detector
+                updateStatus('Initializing detector...', 'info');
+                detector = new BarcodeDetector({
+                    formats: ['qr_code', 'ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e']
+                });
+                log('✅ Detector initialized', 'success');
+
+                // Request camera
+                updateStatus('Requesting camera access...', 'info');
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                log('✅ Camera access granted', 'success');
+
+                // Attach stream to video
+                video.srcObject = stream;
+                await video.play();
+                log('✅ Video playing', 'success');
+
+                // Start detection
+                updateStatus('Scanner active - point at barcode', 'success');
+                startDetection();
+
+            } catch (error) {
+                updateStatus('Error: ' + error.message, 'error');
+                log('❌ Error: ' + error.message, 'error');
+            }
+        };
+
+        function startDetection() {
+            let frameCount = 0;
+            
+            async function detect() {
+                if (!stream || !detector) return;
+
+                try {
+                    frameCount++;
+                    const barcodes = await detector.detect(video);
+
+                    if (barcodes && barcodes.length > 0) {
+                        for (const barcode of barcodes) {
+                            log(`🎉 FOUND: ${barcode.format} = "${barcode.rawValue}"`, 'success');
+                            
+                            scannedCodes.push({
+                                value: barcode.rawValue,
+                                format: barcode.format,
+                                time: new Date().toLocaleTimeString()
+                            });
+
+                            resultsDiv.innerHTML = '<h4>Scanned Codes:</h4>' + 
+                                scannedCodes.map((code, i) => 
+                                    `<div style="padding: 5px; background: white; margin: 5px 0; border-left: 3px solid green;">
+                                        <strong>#${i + 1}</strong> [${code.time}] ${code.format}<br/>
+                                        <code style="font-size: 14px;">${code.value}</code>
+                                    </div>`
+                                ).join('');
+
+                            // Beep sound
+                            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                            audio.volume = 0.3;
+                            audio.play().catch(() => {});
+                        }
+                    }
+
+                    if (frameCount % 30 === 0) {
+                        log(`🔍 Scanned ${frameCount} frames...`);
+                    }
+
+                } catch (err) {
+                    if (frameCount % 60 === 0) {
+                        log(`⚠️ Detection error: ${err.message}`);
+                    }
+                }
+
+                animationFrame = requestAnimationFrame(detect);
+            }
+
+            detect();
+        }
+
+        window.stopTest = function() {
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }
+            
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            video.srcObject = null;
+            updateStatus('Stopped', 'info');
+            log('🛑 Scanner stopped', 'info');
+        };
+    </script>
+</body>
+</html>
+

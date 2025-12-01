@@ -1,13 +1,40 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
+import { ViewToggle } from '../components/ViewToggle';
+import { ViewMode, loadViewMode, saveViewMode, PAGE_IDS, DEFAULT_VIEW_MODE } from '../utils/viewMode';
 import { Phone, Calendar, Clock, ArrowRight, Search, CheckCircle, MessageSquare, History, Upload, Plus, UserPlus, Printer, X } from 'lucide-react';
 import { Customer, DebtTransaction } from '../types';
+import { generateUUID } from '../services/supabase/client';
 
 export const Debtors: React.FC = () => {
-  const { customers, t, recordDebtPayment, addCustomer, getDebtHistory, settings } = useStore();
+  const { customers, t, recordDebtPayment, addCustomer, getDebtHistory, settings, currentUser } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // View Mode State
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
+  
+  // Load view mode from Supabase on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      if (settings?.shopId && currentUser?.id) {
+        const mode = await loadViewMode(PAGE_IDS.DEBTORS, settings.shopId, currentUser.id);
+        setViewMode(mode);
+      } else {
+        const mode = await loadViewMode(PAGE_IDS.DEBTORS);
+        setViewMode(mode);
+      }
+    };
+    loadMode();
+  }, [settings?.shopId, currentUser?.id]);
+  
+  // Save view mode to Supabase
+  useEffect(() => {
+    if (settings?.shopId && currentUser?.id && viewMode !== DEFAULT_VIEW_MODE) {
+      saveViewMode(PAGE_IDS.DEBTORS, viewMode, settings.shopId, currentUser.id);
+    }
+  }, [viewMode, settings?.shopId, currentUser?.id]);
   
   // Payment Modal
   const [selectedDebtor, setSelectedDebtor] = useState<Customer | null>(null);
@@ -77,11 +104,13 @@ export const Debtors: React.FC = () => {
                   // Basic check to avoid duplicates by phone
                   if (!customers.find(c => c.phone === phone)) {
                       addCustomer({
-                          id: Date.now().toString() + Math.random(),
+                          id: generateUUID(),
+                          shopId: settings?.shopId || '',
                           name,
                           phone,
                           totalDebt: debt,
-                          lastPurchaseDate: new Date().toISOString()
+                          lastPurchaseDate: new Date().toISOString(),
+                          createdAt: new Date().toISOString()
                       });
                       count++;
                   }
@@ -98,11 +127,13 @@ export const Debtors: React.FC = () => {
       if (!newCustName || !newCustPhone) return;
       
       addCustomer({
-          id: Date.now().toString(),
+          id: generateUUID(),
+          shopId: settings?.shopId || '',
           name: newCustName,
           phone: newCustPhone,
           totalDebt: Number(newCustDebt) || 0,
-          lastPurchaseDate: new Date().toISOString()
+          lastPurchaseDate: new Date().toISOString(),
+          createdAt: new Date().toISOString()
       });
       
       setShowAddModal(false);
@@ -205,6 +236,7 @@ export const Debtors: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
+            <ViewToggle viewMode={viewMode} onViewChange={setViewMode} className="hidden sm:flex" />
             <div className="flex gap-2">
                 <input 
                     type="file" 
@@ -233,55 +265,191 @@ export const Debtors: React.FC = () => {
            <p className="text-gray-400 text-sm">All clear! No pending debts found.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDebtors.map(c => {
-             const daysSincePurchase = c.lastPurchaseDate 
-                ? Math.floor((Date.now() - new Date(c.lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
-                : 0;
-             const isOverdue = daysSincePurchase > 30; // Simple logic: overdue if > 30 days
-
-             return (
-               <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden">
-                 {isOverdue && <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">{t('overdue')}</div>}
-                 
-                 <div className="flex justify-between items-start mb-4">
-                   <div>
-                     <h3 className="font-bold text-lg text-gray-800">{c.name}</h3>
-                     <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
-                        <Phone className="w-3.5 h-3.5" />
-                        {c.phone}
-                     </div>
-                   </div>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="bg-red-50 p-3 rounded-xl border border-red-100">
-                       <span className="text-xs text-red-400 uppercase font-bold tracking-wide">{t('totalDebt')}</span>
-                       <p className="text-xl font-bold text-red-600">₦{c.totalDebt.toLocaleString()}</p>
+        <div className="transition-all duration-300 animate-in fade-in">
+          {/* Small Icons View */}
+          {viewMode === 'small' && (
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+              {filteredDebtors.map(c => {
+                const daysSincePurchase = c.lastPurchaseDate 
+                  ? Math.floor((Date.now() - new Date(c.lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+                  : 0;
+                const isOverdue = daysSincePurchase > 30;
+                return (
+                  <div key={c.id} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all relative group">
+                    {isOverdue && <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full z-10" />}
+                    <div className="w-full aspect-square bg-gradient-to-br from-red-50 to-orange-50 rounded-lg flex items-center justify-center mb-2 border border-red-100">
+                      <UserPlus className="w-6 h-6 text-red-400" />
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                       <span className="text-xs text-gray-400 uppercase font-bold tracking-wide">Last Active</span>
-                       <div className="flex items-center gap-1 mt-1">
-                          <Clock className="w-3.5 h-3.5 text-gray-400" />
-                          <span className="text-sm font-semibold text-gray-700">{daysSincePurchase}d ago</span>
+                    <p className="text-[10px] font-semibold text-gray-800 line-clamp-2 text-center leading-tight mb-1">{c.name}</p>
+                    <p className="text-[9px] text-red-600 font-bold text-center">{settings.currency}{c.totalDebt.toLocaleString()}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Large Icons View (Current) */}
+          {viewMode === 'large' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDebtors.map(c => {
+                const daysSincePurchase = c.lastPurchaseDate 
+                  ? Math.floor((Date.now() - new Date(c.lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+                  : 0;
+                const isOverdue = daysSincePurchase > 30;
+                return (
+                  <div key={c.id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden">
+                    {isOverdue && <div className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-wider">{t('overdue')}</div>}
+                    
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="font-bold text-lg text-gray-800">{c.name}</h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mt-0.5">
+                           <Phone className="w-3.5 h-3.5" />
+                           {c.phone}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                       <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                          <span className="text-xs text-red-400 uppercase font-bold tracking-wide">{t('totalDebt')}</span>
+                          <p className="text-xl font-bold text-red-600">{settings.currency}{c.totalDebt.toLocaleString()}</p>
+                       </div>
+                       <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                          <span className="text-xs text-gray-400 uppercase font-bold tracking-wide">Last Active</span>
+                          <div className="flex items-center gap-1 mt-1">
+                             <Clock className="w-3.5 h-3.5 text-gray-400" />
+                             <span className="text-sm font-semibold text-gray-700">{daysSincePurchase}d ago</span>
+                          </div>
                        </div>
                     </div>
-                 </div>
 
-                 <div className="flex gap-2">
-                    <Button onClick={() => handleOpenPayment(c)} className="flex-1 bg-green-600 hover:bg-green-700 shadow-green-100 text-sm">
-                       {t('recordPayment')}
-                    </Button>
-                    <button onClick={() => handleSendReminder(c)} className="p-2.5 bg-gray-100 hover:bg-green-50 text-gray-600 hover:text-green-600 rounded-xl transition-colors">
-                       <MessageSquare className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => handleViewHistory(c)} className="p-2.5 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-xl transition-colors">
-                       <History className="w-5 h-5" />
-                    </button>
-                 </div>
-               </div>
-             );
-          })}
+                    <div className="flex gap-2">
+                       <Button onClick={() => handleOpenPayment(c)} className="flex-1 bg-green-600 hover:bg-green-700 shadow-green-100 text-sm">
+                          {t('recordPayment')}
+                       </Button>
+                       <button onClick={() => handleSendReminder(c)} className="p-2.5 bg-gray-100 hover:bg-green-50 text-gray-600 hover:text-green-600 rounded-xl transition-colors">
+                          <MessageSquare className="w-5 h-5" />
+                       </button>
+                       <button onClick={() => handleViewHistory(c)} className="p-2.5 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-xl transition-colors">
+                          <History className="w-5 h-5" />
+                       </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* List View */}
+          {viewMode === 'list' && (
+            <div className="space-y-3">
+              {filteredDebtors.map(c => {
+                const daysSincePurchase = c.lastPurchaseDate 
+                  ? Math.floor((Date.now() - new Date(c.lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+                  : 0;
+                const isOverdue = daysSincePurchase > 30;
+                return (
+                  <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-red-50 to-orange-50 rounded-lg flex items-center justify-center flex-shrink-0 border border-red-100 relative">
+                      <UserPlus className="w-6 h-6 text-red-400" />
+                      {isOverdue && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-800 text-sm mb-1">{c.name}</h3>
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3 h-3" />
+                          {c.phone}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Last active: {daysSincePurchase}d ago
+                        </span>
+                        {isOverdue && <span className="text-red-600 font-bold">OVERDUE</span>}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="font-bold text-red-600 text-lg">{settings.currency}{c.totalDebt.toLocaleString()}</div>
+                      <div className="text-xs text-gray-400">Total Debt</div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button onClick={() => handleOpenPayment(c)} size="sm" className="bg-green-600 hover:bg-green-700 text-xs">
+                        Pay
+                      </Button>
+                      <button onClick={() => handleSendReminder(c)} className="p-2 bg-gray-100 hover:bg-green-50 text-gray-600 hover:text-green-600 rounded-lg transition-colors">
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleViewHistory(c)} className="p-2 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-lg transition-colors">
+                        <History className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Details View */}
+          {viewMode === 'details' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {filteredDebtors.map(c => {
+                const daysSincePurchase = c.lastPurchaseDate 
+                  ? Math.floor((Date.now() - new Date(c.lastPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+                  : 0;
+                const isOverdue = daysSincePurchase > 30;
+                return (
+                  <div key={c.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg transition-all relative overflow-hidden">
+                    {isOverdue && <div className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-bl-xl uppercase tracking-wider">OVERDUE</div>}
+                    
+                    <div className="flex gap-5 mb-5">
+                      <div className="w-20 h-20 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl flex items-center justify-center flex-shrink-0 border border-red-100">
+                        <UserPlus className="w-10 h-10 text-red-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-xl text-gray-800 mb-2">{c.name}</h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
+                          <Phone className="w-4 h-4" />
+                          {c.phone}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-5">
+                      <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                        <span className="block text-xs text-red-400 uppercase font-bold tracking-wide mb-2">{t('totalDebt')}</span>
+                        <p className="text-2xl font-bold text-red-600">{settings.currency}{c.totalDebt.toLocaleString()}</p>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <span className="block text-xs text-gray-400 uppercase font-bold tracking-wide mb-2">Last Active</span>
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-gray-400" />
+                          <span className="text-lg font-semibold text-gray-700">{daysSincePurchase} days ago</span>
+                        </div>
+                        {c.lastPurchaseDate && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(c.lastPurchaseDate).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-4 border-t border-dashed border-gray-100">
+                      <Button onClick={() => handleOpenPayment(c)} className="flex-1 bg-green-600 hover:bg-green-700 shadow-green-100">
+                        {t('recordPayment')}
+                      </Button>
+                      <button onClick={() => handleSendReminder(c)} className="px-4 bg-gray-100 hover:bg-green-50 text-gray-600 hover:text-green-600 rounded-xl transition-colors" title="Send Reminder">
+                        <MessageSquare className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => handleViewHistory(c)} className="px-4 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-600 rounded-xl transition-colors" title="View History">
+                        <History className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

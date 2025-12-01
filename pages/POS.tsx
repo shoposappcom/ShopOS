@@ -6,6 +6,9 @@ import { PAYMENT_METHODS } from '../constants';
 import { Plus, Minus, Trash2, Search, ScanLine, ShoppingCart, Check, X, Package, Printer, Lock, Mic, MicOff, Calendar, Gift, Ticket, Layers, UserPlus, Download } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { BarcodeScanner } from '../components/BarcodeScanner';
+import { ViewToggle } from '../components/ViewToggle';
+import { ViewMode, loadViewMode, saveViewMode, PAGE_IDS, DEFAULT_VIEW_MODE } from '../utils/viewMode';
+import { generateUUID } from '../services/supabase/client';
 import html2canvas from 'html2canvas';
 
 export const POS: React.FC = () => {
@@ -16,6 +19,31 @@ export const POS: React.FC = () => {
   const [mode, setMode] = useState<'scan' | 'list'>('list');
   const [scanning, setScanning] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  
+  // View Mode State
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
+  
+  // Load view mode from Supabase on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      if (settings?.shopId && currentUser?.id) {
+        const mode = await loadViewMode(PAGE_IDS.POS, settings.shopId, currentUser.id);
+        setViewMode(mode);
+      } else {
+        // Fallback to localStorage
+        const mode = await loadViewMode(PAGE_IDS.POS);
+        setViewMode(mode);
+      }
+    };
+    loadMode();
+  }, [settings?.shopId, currentUser?.id]);
+  
+  // Save view mode to Supabase
+  useEffect(() => {
+    if (settings?.shopId && currentUser?.id && viewMode !== DEFAULT_VIEW_MODE) {
+      saveViewMode(PAGE_IDS.POS, viewMode, settings.shopId, currentUser.id);
+    }
+  }, [viewMode, settings?.shopId, currentUser?.id]);
   
   // Checkout State
   const [showCheckout, setShowCheckout] = useState(false);
@@ -242,10 +270,13 @@ export const POS: React.FC = () => {
         finalMethod = paymentMethod; 
     }
 
+    const now = new Date().toISOString();
     const sale: Sale = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      cashierId: currentUser?.id || 'unknown',
+      id: generateUUID(),
+      shopId: settings?.shopId || '',
+      date: now,
+      createdAt: now,
+      cashierId: currentUser?.id || '',
       cashierName: currentUser?.fullName || 'Unknown',
       items: cart,
       total: subtotal, // Store original total
@@ -272,11 +303,13 @@ export const POS: React.FC = () => {
   const handleAddNewCustomer = () => {
       if (!newCustName || !newCustPhone) return;
       const newCustomer: Customer = {
-          id: Date.now().toString(),
+          id: generateUUID(),
+          shopId: settings?.shopId || '',
           name: newCustName,
           phone: newCustPhone,
           totalDebt: 0,
-          lastPurchaseDate: new Date().toISOString()
+          lastPurchaseDate: new Date().toISOString(),
+          createdAt: new Date().toISOString()
       };
       addCustomer(newCustomer);
       setSelectedCustomer(newCustomer.id);
@@ -559,7 +592,7 @@ export const POS: React.FC = () => {
       <div className="flex-1 flex flex-col gap-4 overflow-hidden h-full">
         {/* Search Bar & Filters */}
         <div className="bg-white p-3 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-200 shrink-0 sticky top-0 z-10 space-y-3">
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
                     <input
@@ -575,6 +608,7 @@ export const POS: React.FC = () => {
                     {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                     </button>
                 </div>
+                <ViewToggle viewMode={viewMode} onViewChange={setViewMode} className="hidden sm:flex" />
                 <Button variant="secondary" className="rounded-xl px-4 bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-100" onClick={() => setMode('scan')}>
                     <ScanLine className="w-5 h-5" />
                 </Button>
@@ -609,53 +643,191 @@ export const POS: React.FC = () => {
         )}
 
         {/* Product Grid */}
-        <div className="flex-1 overflow-y-auto pr-1 pb-40">
+        <div className="flex-1 overflow-y-auto pr-1 pb-40 transition-all duration-300">
             {filteredProducts.length === 0 ? (
                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                   <Package className="w-16 h-16 mb-4 opacity-20" />
                   <p>No products found</p>
                </div>
             ) : (
-             <div className="grid grid-cols-1 min-[340px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredProducts.map(product => {
-                const stockCtn = Math.floor(product.totalUnits / product.unitsPerCarton);
-                const stockUnit = product.totalUnits % product.unitsPerCarton;
-                const isLow = product.totalUnits < product.minStockLevel;
+              <>
+                {/* Small Icons View */}
+                {viewMode === 'small' && (
+                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+                    {filteredProducts.map(product => {
+                      const stockCtn = Math.floor(product.totalUnits / product.unitsPerCarton);
+                      const stockUnit = product.totalUnits % product.unitsPerCarton;
+                      const isLow = product.totalUnits < product.minStockLevel;
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => openAddToCart(product)}
+                          className="bg-white p-2 rounded-xl shadow-sm border border-gray-200 flex flex-col items-center gap-1.5 transition-all hover:scale-105 hover:shadow-md hover:border-green-100 group"
+                          title={product.name}
+                        >
+                          <div className="w-full aspect-square bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden relative border border-gray-100">
+                            {product.image ? (
+                              <img src={product.image} className="w-full h-full object-cover" alt={product.name} />
+                            ) : (
+                              <Package className="w-4 h-4 text-gray-300" />
+                            )}
+                            {isLow && <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-red-500 rounded-full" />}
+                          </div>
+                          <p className="text-[10px] font-semibold text-gray-800 line-clamp-2 text-center leading-tight">{product.name}</p>
+                          <span className="text-[9px] font-bold text-gray-700">{settings.currency}{product.unitPrice.toLocaleString()}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
-                return (
-                  <button 
-                    key={product.id} 
-                    onClick={() => openAddToCart(product)}
-                    className="bg-white p-3 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-200 flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md hover:border-green-100 group text-left h-full"
-                  >
-                    <div className="mb-2 w-full">
-                      <div className="w-full h-20 bg-gray-50 rounded-xl mb-3 flex items-center justify-center text-gray-300 border border-gray-100 overflow-hidden relative">
-                         {product.image ? (
-                           <img src={product.image} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={product.name} />
-                         ) : (
-                           <Package className="w-8 h-8 opacity-20" />
-                         )}
-                         {isLow && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
-                      </div>
-                      <h3 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight h-9">{product.name}</h3>
-                      <div className="flex justify-between items-center mt-1">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 truncate pr-2 max-w-[50%]">{product.category}</p>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                           {stockCtn}c {stockUnit}u
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-auto w-full pt-2 border-t border-dashed border-gray-100">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-400 font-medium">Unit</span>
-                            <span className="font-bold text-gray-800">{settings.currency}{product.unitPrice.toLocaleString()}</span>
-                        </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                {/* Large Icons View (Current) */}
+                {viewMode === 'large' && (
+                  <div className="grid grid-cols-1 min-[340px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredProducts.map(product => {
+                      const stockCtn = Math.floor(product.totalUnits / product.unitsPerCarton);
+                      const stockUnit = product.totalUnits % product.unitsPerCarton;
+                      const isLow = product.totalUnits < product.minStockLevel;
+                      return (
+                        <button 
+                          key={product.id} 
+                          onClick={() => openAddToCart(product)}
+                          className="bg-white p-3 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-200 flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md hover:border-green-100 group text-left h-full"
+                        >
+                          <div className="mb-2 w-full">
+                            <div className="w-full h-20 bg-gray-50 rounded-xl mb-3 flex items-center justify-center text-gray-300 border border-gray-100 overflow-hidden relative">
+                               {product.image ? (
+                                 <img src={product.image} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={product.name} />
+                               ) : (
+                                 <Package className="w-8 h-8 opacity-20" />
+                               )}
+                               {isLow && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />}
+                            </div>
+                            <h3 className="font-bold text-gray-800 text-sm line-clamp-2 leading-tight h-9">{product.name}</h3>
+                            <div className="flex justify-between items-center mt-1">
+                              <p className="text-[10px] uppercase tracking-wider text-gray-400 truncate pr-2 max-w-[50%]">{product.category}</p>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isLow ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                 {stockCtn}c {stockUnit}u
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-auto w-full pt-2 border-t border-dashed border-gray-100">
+                              <div className="flex justify-between items-center">
+                                  <span className="text-xs text-gray-400 font-medium">Unit</span>
+                                  <span className="font-bold text-gray-800">{settings.currency}{product.unitPrice.toLocaleString()}</span>
+                              </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* List View */}
+                {viewMode === 'list' && (
+                  <div className="space-y-2">
+                    {filteredProducts.map(product => {
+                      const stockCtn = Math.floor(product.totalUnits / product.unitsPerCarton);
+                      const stockUnit = product.totalUnits % product.unitsPerCarton;
+                      const isLow = product.totalUnits < product.minStockLevel;
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => openAddToCart(product)}
+                          className="bg-white p-3 rounded-xl shadow-sm border border-gray-200 flex items-center gap-4 w-full transition-all hover:shadow-md hover:border-green-100 group text-left"
+                        >
+                          <div className="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-100 relative">
+                            {product.image ? (
+                              <img src={product.image} className="w-full h-full object-cover" alt={product.name} />
+                            ) : (
+                              <Package className="w-6 h-6 text-gray-300" />
+                            )}
+                            {isLow && <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-1">{product.name}</h3>
+                            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{product.category}</p>
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                              <span>Stock: {stockCtn}c {stockUnit}u</span>
+                              <span className={isLow ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                                {isLow ? 'Low Stock' : 'In Stock'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-bold text-gray-800 text-sm">{settings.currency}{product.unitPrice.toLocaleString()}</div>
+                            <div className="text-xs text-gray-400">Unit</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Details View */}
+                {viewMode === 'details' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredProducts.map(product => {
+                      const stockCtn = Math.floor(product.totalUnits / product.unitsPerCarton);
+                      const stockUnit = product.totalUnits % product.unitsPerCarton;
+                      const isLow = product.totalUnits < product.minStockLevel;
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => openAddToCart(product)}
+                          className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-gray-200 flex flex-col gap-4 transition-all hover:scale-[1.01] hover:shadow-lg hover:border-green-100 group text-left"
+                        >
+                          <div className="flex gap-4">
+                            <div className="w-32 h-32 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-100 relative">
+                              {product.image ? (
+                                <img src={product.image} className="w-full h-full object-cover transition-transform group-hover:scale-105" alt={product.name} />
+                              ) : (
+                                <Package className="w-10 h-10 text-gray-300" />
+                              )}
+                              {isLow && <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse" />}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-2">{product.name}</h3>
+                              <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">{product.category}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                                <span>Barcode: {product.barcode || 'N/A'}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                              <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Unit Price</span>
+                              <span className="font-bold text-gray-800">{settings.currency}{product.unitPrice.toLocaleString()}</span>
+                            </div>
+                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                              <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Carton Price</span>
+                              <span className="font-bold text-gray-800">{settings.currency}{product.cartonPrice.toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-100">
+                            <div>
+                              <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Stock Level</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-bold ${isLow ? 'text-red-600' : 'text-green-600'}`}>
+                                  {stockCtn} Cartons, {stockUnit} Units
+                                </span>
+                                {isLow && <span className="text-xs text-red-600 font-bold">(Low Stock)</span>}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Total Units</span>
+                              <span className="text-sm font-bold text-gray-800">{product.totalUnits}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
       </div>

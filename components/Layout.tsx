@@ -2,8 +2,10 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { NAV_ITEMS } from '../constants';
-import { LogOut, Globe, Menu, UserCircle, ChevronDown, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { LogOut, Globe, Menu, UserCircle, ChevronDown, Wifi, WifiOff, RefreshCw, Clock, CheckCircle2, AlertCircle, TestTube } from 'lucide-react';
 import { Language } from '../types';
+import { getDaysRemaining } from '../services/subscription';
+import { isTestAccount } from '../services/testData';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,7 +14,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
-  const { currentUser, logout, t, language, setLanguage, hasPermission, isOnline, isSyncing, settings } = useStore();
+  const { currentUser, logout, t, language, setLanguage, hasPermission, isOnline, isSyncing, pendingSyncCount, settings, getSubscription, checkSubscription } = useStore();
 
   const handleLangChange = () => {
     const langs: Language[] = ['en', 'ha', 'yo', 'ig', 'ar', 'fr'];
@@ -49,14 +51,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
 
   const visibleNavItems = getVisibleNavItems();
 
+  const isTest = settings?.shopId ? isTestAccount(settings.shopId) : false;
+
   return (
     <div className="flex flex-col h-screen bg-white">
+      {/* Test Account Banner */}
+      {isTest && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center justify-center gap-2 text-xs font-medium text-yellow-800">
+          <TestTube className="w-4 h-4" />
+          <span>TEST ACCOUNT - Demo purposes only. All data is sample data.</span>
+        </div>
+      )}
+      
       {/* Top Bar - Glassmorphism */}
       <header className="bg-white/90 backdrop-blur-md shadow-sm border-b border-gray-100 px-4 py-3 flex justify-between items-center sticky top-0 z-30 h-16 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-xl flex items-center justify-center text-white font-bold shadow-green-200 shadow-lg">
-            S
-          </div>
+        <div className="flex items-center gap-2">
+          <img 
+            src="https://i.ibb.co/3YcgDWcT/Adobe-Express-file.png" 
+            alt="ShopOS Logo" 
+            className="h-20 w-auto object-contain"
+          />
           <div>
             <h1 className="font-bold text-gray-800 text-lg leading-tight hidden sm:block">{settings.businessName || 'ShopOS'}</h1>
             <span className="text-[10px] text-green-600 font-bold tracking-wider uppercase sm:hidden">ShopOS</span>
@@ -64,6 +78,34 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
         </div>
         
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Subscription Status Indicator */}
+          {(() => {
+            const subscription = getSubscription();
+            if (subscription) {
+              const daysLeft = getDaysRemaining(subscription);
+              const isActive = checkSubscription();
+              const status = subscription.status;
+              
+              if (status === 'trial' || status === 'active') {
+                return (
+                  <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
+                    daysLeft <= 3 
+                      ? 'bg-orange-50 text-orange-700 border-orange-200' 
+                      : 'bg-green-50 text-green-700 border-green-200'
+                  }`}>
+                    {daysLeft <= 3 ? (
+                      <Clock className="w-3.5 h-3.5" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>{daysLeft} {daysLeft === 1 ? 'day' : 'days'} left</span>
+                  </div>
+                );
+              }
+            }
+            return null;
+          })()}
+          
           <button 
             onClick={handleLangChange}
             className="flex items-center gap-2 text-xs font-medium bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full transition-colors border border-gray-100"
@@ -150,7 +192,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
          
          <div className="p-4 m-4 bg-gray-50 rounded-xl border border-gray-100">
            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${
+                isSyncing 
+                  ? 'bg-blue-500 animate-pulse' 
+                  : isOnline 
+                    ? 'bg-green-500 animate-pulse' 
+                    : 'bg-orange-400'
+              }`}></div>
               <span className="text-xs font-semibold text-gray-500">{t('systemStatus')}</span>
            </div>
            
@@ -167,12 +215,23 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
                  </>
               ) : (
                  <>
-                   <WifiOff className="w-3 h-3" />
-                   <span>{t('offline')}</span>
+                   <WifiOff className="w-3 h-3 text-orange-500" />
+                   <span className="text-orange-500">{t('offline')}</span>
                  </>
               )}
            </div>
-           <p className="text-[10px] text-gray-400 mt-1 pl-5">v1.2.0</p>
+           
+           {/* Pending Sync Count */}
+           {pendingSyncCount > 0 && !isSyncing && (
+             <div className="flex items-center gap-2 text-xs mt-2 pl-5">
+               <AlertCircle className="w-3 h-3 text-amber-500" />
+               <span className="text-amber-600">
+                 {pendingSyncCount} {pendingSyncCount === 1 ? 'change' : 'changes'} pending
+               </span>
+             </div>
+           )}
+           
+           <p className="text-[10px] text-gray-400 mt-2 pl-5">v1.2.1</p>
          </div>
       </div>
     </div>

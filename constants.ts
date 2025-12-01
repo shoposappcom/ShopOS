@@ -32,17 +32,19 @@ export const PAYMENT_METHODS = [
   { id: 'credit', labelKey: 'credit', icon: FileText },
 ];
 
+// Default settings - used only as fallback, real settings come from Supabase
 export const INITIAL_SETTINGS: ShopSettings = {
   shopId: 'default_shop',
-  businessName: 'ShopOS Store',
-  address: '123 Market Road, Lagos, Nigeria',
-  phone: '080-1234-5678',
+  businessName: '',
+  address: '',
+  phone: '',
   country: 'Nigeria',
-  state: 'Lagos',
+  state: '',
   currency: '₦',
   receiptFooter: 'Thank you for your patronage!',
   taxRate: 0,
-  autoBackup: 'off'
+  autoBackup: 'off',
+  createdAt: new Date().toISOString()
 };
 
 export const GIFT_CARD_THEMES = {
@@ -91,103 +93,18 @@ export const COUNTRIES_STATES: Record<string, string[]> = {
   ]
 };
 
-export const INITIAL_CATEGORIES: Category[] = [
-  { id: 'cat1', name: 'Provisions' },
-  { id: 'cat2', name: 'Drinks' },
-  { id: 'cat3', name: 'Pharmacy' },
-  { id: 'cat4', name: 'Cosmetics' },
-  { id: 'cat5', name: 'Electronics' },
-  { id: 'cat6', name: 'General' },
-];
+// Empty initial data - production mode uses Supabase
+export const INITIAL_CATEGORIES: Category[] = [];
 
-export const INITIAL_SUPPLIERS: Supplier[] = [
-  { id: 'sup1', name: 'Alhaji Musa Wholesales', contactPerson: 'Musa', phone: '08011111111', address: 'Kano Market' },
-  { id: 'sup2', name: 'Coca-Cola NBC', contactPerson: 'Sales Rep', phone: '08022222222', address: 'Depot' },
-];
+export const INITIAL_SUPPLIERS: Supplier[] = [];
 
 export const INITIAL_EXPENSES: Expense[] = [];
 
-export const INITIAL_USERS: User[] = [
-  { 
-    id: '1', 
-    username: 'admin', 
-    password: 'password123', 
-    fullName: 'Musa Ibrahim', 
-    role: 'superadmin', 
-    status: 'active',
-    language: 'en',
-    createdAt: new Date().toISOString(),
-    phone: '08012345678'
-  },
-  { 
-    id: '2', 
-    username: 'manager', 
-    password: 'password123', 
-    fullName: 'Fatima Hassan', 
-    role: 'manager', 
-    status: 'active',
-    language: 'ha',
-    createdAt: new Date().toISOString(),
-    phone: '08087654321'
-  },
-  { 
-    id: '3', 
-    username: 'cashier', 
-    password: 'password123', 
-    fullName: 'John Doe', 
-    role: 'cashier', 
-    status: 'active',
-    language: 'yo',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '4',
-    username: 'stock', 
-    password: 'password123', 
-    fullName: 'Chinedu Stock', 
-    role: 'stock_clerk', 
-    status: 'active',
-    language: 'ig',
-    createdAt: new Date().toISOString()
-  }
-];
+export const INITIAL_USERS: User[] = [];
 
-export const INITIAL_PRODUCTS: Product[] = [
-  { 
-    id: 'p1', name: 'Peak Milk (Tin)', barcode: '123456', category: 'Provisions', categoryId: 'cat1', supplierId: 'sup1',
-    cartonPrice: 18000, unitPrice: 800, unitsPerCarton: 24,
-    costPriceCarton: 16000, costPriceUnit: 666.67,
-    stockCartons: 10, stockUnits: 5, totalUnits: 245, minStockLevel: 50,
-    image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80',
-    translations: {
-      ha: { name: 'Peak Milk Gwangwani', category: 'Kayan Masarufi' },
-      yo: { name: 'Peak Milk Iṣẹ', category: 'Ipese' }
-    }
-  },
-  { 
-    id: 'p2', name: 'Coca Cola (50cl)', barcode: '789012', category: 'Drinks', categoryId: 'cat2', supplierId: 'sup2',
-    cartonPrice: 4500, unitPrice: 400, unitsPerCarton: 12,
-    costPriceCarton: 3800, costPriceUnit: 316.67,
-    stockCartons: 50, stockUnits: 0, totalUnits: 600, minStockLevel: 100,
-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80',
-    translations: {
-      ha: { name: 'Lemu Coca Cola', category: 'Abubuwan Sha' }
-    }
-  },
-  { 
-    id: 'p3', name: 'Paracetamol (Pack)', barcode: '345678', category: 'Pharmacy', categoryId: 'cat3', supplierId: 'sup1',
-    cartonPrice: 5000, unitPrice: 500, unitsPerCarton: 12,
-    costPriceCarton: 3500, costPriceUnit: 291.67,
-    stockCartons: 5, stockUnits: 0, totalUnits: 60, minStockLevel: 20, 
-    expiryDate: '2025-12-01', batchNumber: 'BATCH-001'
-  },
-];
+export const INITIAL_PRODUCTS: Product[] = [];
 
-export const INITIAL_CUSTOMERS: Customer[] = [
-  { id: 'c1', name: 'Mama Nkechi', phone: '08055555555', totalDebt: 15000, lastPurchaseDate: '2025-05-10T10:00:00' },
-  { id: 'c2', name: 'Iya Basira', phone: '08066666666', totalDebt: 2500, lastPurchaseDate: '2025-05-12T14:30:00' },
-  { id: 'c3', name: 'Uncle Joe', phone: '08077777777', totalDebt: 0, lastPurchaseDate: '2025-05-01T09:15:00' }
-];
+export const INITIAL_CUSTOMERS: Customer[] = [];
 
 export const TRANSLATIONS: Record<Language, Record<string, any>> = {
   en: {
@@ -230,6 +147,32 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     superadmin: "Super Admin", expired: "Expired", expiresIn: "Expires in", days: "days", expiryAlerts: "Expiry Alerts",
     actionExecuted: "Action Executed", aiHelp: "Shop Assistant", clearChat: "Clear Chat", applyAction: "Apply Action", aiPromptPlaceholder: "Ask me anything...",
     myPerformance: "My Performance",
+    // System Status Translations
+    systemStatus: "System Status",
+    online: "Online",
+    offline: "Offline",
+    syncing: "Syncing...",
+    // Subscription Translations
+    subscriptionExpired: "Subscription Expired",
+    daysRemaining: "Days Remaining",
+    trialEnding: "Trial Ending Soon",
+    makePayment: "Make Payment",
+    subscriptionStatus: "Subscription Status",
+    trial: "Trial",
+    active: "Active",
+    expired: "Expired",
+    accountLocked: "Account Locked",
+    unlockAccount: "Unlock Account",
+    choosePlan: "Choose Plan",
+    monthlyPlan: "Monthly Plan",
+    yearlyPlan: "Yearly Plan",
+    paymentSuccessful: "Payment Successful",
+    paymentFailed: "Payment Failed",
+    processingPayment: "Processing Payment...",
+    subscriptionManagement: "Subscription",
+    currentPlan: "Current Plan",
+    nextBillingDate: "Next Billing Date",
+    paymentHistory: "Payment History",
     // Login Translations
     login: "Login", createShopAccount: "Create Shop Account", welcomeBack: "Welcome Back",
     enterDetails: "Enter your details", startManaging: "Start managing your business today",
@@ -283,6 +226,11 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     superadmin: "Babban Admin", expired: "Ya Lalace", expiresIn: "Zai lalace nan da", days: "kwana", expiryAlerts: "Kayan da zasu lalace",
     actionExecuted: "An aiwatar", aiHelp: "Mataimakin Shago", clearChat: "Goge Hira", applyAction: "Aiwatar", aiPromptPlaceholder: "Tambaye ni komai...",
     myPerformance: "Kokarina",
+    // System Status
+    systemStatus: "Yanayin Tsarin",
+    online: "A Layi",
+    offline: "Babu Layi",
+    syncing: "Ana aiki...",
     // Login Translations (Hausa)
     login: "Shiga", createShopAccount: "Bude Sabon Shago", welcomeBack: "Barka da dawowa",
     enterDetails: "Saka bayanan ka don shiga", startManaging: "Fara kula da kasuwancin ka yau",
@@ -336,6 +284,11 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     superadmin: "Alakoso Agba", expired: "Ti Pari", expiresIn: "Pari ni", days: "ọjọ", expiryAlerts: "Ikilo Ipari",
     actionExecuted: "Iṣe ti pari", aiHelp: "Oluranlọwọ", clearChat: "Nu Wiregbe", applyAction: "Lo Iṣe", aiPromptPlaceholder: "Beere ohunkohun...",
     myPerformance: "Iṣẹ Mi",
+    // System Status
+    systemStatus: "Ipo Eto",
+    online: "Lori Ayelujara",
+    offline: "Kii ṣe Lori Ayelujara",
+    syncing: "Ṣiṣẹpọ...",
     // Login (Yoruba)
     login: "Wiwọle", createShopAccount: "Ṣii Akọọlẹ Ṣọọbu", welcomeBack: "Kaabo Pada",
     enterDetails: "Tẹ awọn alaye rẹ sii", startManaging: "Bẹrẹ ṣiṣakoso iṣowo rẹ",
@@ -389,6 +342,11 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     superadmin: "Onye Isi Ukwu", expired: "Emebiela", expiresIn: "Ga-emebi na", days: "ụbọchị", expiryAlerts: "Ịdọ Aka Na Ntị",
     actionExecuted: "Emere ya", aiHelp: "Onye Enyemaka", clearChat: "Hichaa", applyAction: "Mee Ya", aiPromptPlaceholder: "Jụọ m ihe ọbụla...",
     myPerformance: "Ọrụ M",
+    // System Status
+    systemStatus: "Ọnọdụ Sistemụ",
+    online: "Na Intaneti",
+    offline: "Agaghị Intaneti",
+    syncing: "Na-esochi...",
     // Login (Igbo)
     login: "Banye", createShopAccount: "Mepụta Akaụntụ Ahịa", welcomeBack: "Nnọọ ọzọ",
     enterDetails: "Tinye nkọwa gị", startManaging: "Malite ijikwa azụmahịa gị",
@@ -442,6 +400,11 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     superadmin: "مشرف عام", expired: "منتهي الصلاحية", expiresIn: "ينتهي خلال", days: "أيام", expiryAlerts: "تنبيهات الانتهاء",
     actionExecuted: "تم التنفيذ", aiHelp: "المساعد الذكي", clearChat: "مسح المحادثة", applyAction: "تطبيق", aiPromptPlaceholder: "اسألني أي شيء...",
     myPerformance: "أدائي",
+    // System Status
+    systemStatus: "حالة النظام",
+    online: "متصل",
+    offline: "غير متصل",
+    syncing: "جاري المزامنة...",
     // Login (Arabic)
     login: "تسجيل الدخول", createShopAccount: "إنشاء حساب متجر", welcomeBack: "مرحباً بعودتك",
     enterDetails: "أدخل تفاصيلك", startManaging: "ابدأ إدارة عملك اليوم",
@@ -495,6 +458,11 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     superadmin: "Super Admin", expired: "Expiré", expiresIn: "Expire dans", days: "jours", expiryAlerts: "Alertes Expiration",
     actionExecuted: "Action Exécutée", aiHelp: "Assistant Boutique", clearChat: "Effacer", applyAction: "Appliquer", aiPromptPlaceholder: "Demandez-moi...",
     myPerformance: "Ma Performance",
+    // System Status
+    systemStatus: "État du Système",
+    online: "En Ligne",
+    offline: "Hors Ligne",
+    syncing: "Synchronisation...",
     // Login (French)
     login: "Connexion", createShopAccount: "Créer Compte Boutique", welcomeBack: "Bon retour",
     enterDetails: "Entrez vos identifiants", startManaging: "Gérez votre business",

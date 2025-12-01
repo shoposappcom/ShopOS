@@ -1,9 +1,12 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
+import { ViewToggle } from '../components/ViewToggle';
+import { ViewMode, loadViewMode, saveViewMode, PAGE_IDS, DEFAULT_VIEW_MODE } from '../utils/viewMode';
 import { Plus, Edit, Package, Search, Image as ImageIcon, UploadCloud, AlertTriangle, Calendar, Archive, Filter, Truck, History, Printer, X, ArrowRight, HelpCircle } from 'lucide-react';
 import { Product, StockMovement } from '../types';
+import { generateUUID } from '../services/supabase/client';
 
 export const Inventory: React.FC = () => {
   const { products, categories, suppliers, t, addProduct, editProduct, updateStock, hasPermission, currentUser, stockMovements, settings } = useStore();
@@ -12,10 +15,36 @@ export const Inventory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   
+  // View Mode State
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
+  
+  // Load view mode from Supabase on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      if (settings?.shopId && currentUser?.id) {
+        const mode = await loadViewMode(PAGE_IDS.STOCK, settings.shopId, currentUser.id);
+        setViewMode(mode);
+      } else {
+        const mode = await loadViewMode(PAGE_IDS.STOCK);
+        setViewMode(mode);
+      }
+    };
+    loadMode();
+  }, [settings?.shopId, currentUser?.id]);
+  
+  // Save view mode to Supabase
+  useEffect(() => {
+    if (settings?.shopId && currentUser?.id && viewMode !== DEFAULT_VIEW_MODE) {
+      saveViewMode(PAGE_IDS.STOCK, viewMode, settings.shopId, currentUser.id);
+    }
+  }, [viewMode, settings?.shopId, currentUser?.id]);
+  
   // State for Add/Edit Product
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<Partial<Product>>({});
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State for Restock
@@ -41,6 +70,7 @@ export const Inventory: React.FC = () => {
     setEditingProduct(null);
     setFormData({ unitsPerCarton: 1, category: categories[0]?.name || 'General' });
     setImagePreview('');
+    setUploadedImageFile(null);
     setShowModal(true);
   };
 
@@ -48,19 +78,57 @@ export const Inventory: React.FC = () => {
     setEditingProduct(product);
     setFormData(product);
     setImagePreview(product.image || '');
+    setUploadedImageFile(null);
     setShowModal(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+    
+    // Validate file size (max 10MB before compression)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image size must be less than 10MB');
+      return;
+    }
+    
+    try {
+      setUploadingImage(true);
+      
+      // Compress the image before storing
+      const { compressImage, getCompressionOptions } = await import('../services/imageCompression');
+      const compressionOptions = getCompressionOptions(file);
+      const compressedFile = await compressImage(file, compressionOptions);
+      
+      // Validate compressed size (should be under 500KB, but check anyway)
+      if (compressedFile.size > 500 * 1024) {
+        console.warn('Compressed image is still large:', (compressedFile.size / 1024).toFixed(2), 'KB');
+      }
+      
+      // Store the compressed file for later upload
+      setUploadedImageFile(compressedFile);
+      
+      // Show preview of compressed image
       const reader = new FileReader();
       reader.onloadend = () => {
         const result = reader.result as string;
         setImagePreview(result);
-        setFormData(prev => ({ ...prev, image: result }));
+        setFormData(prev => ({ ...prev, image: result })); // Temporary preview
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressedFile);
+      
+      console.log('✅ Image compressed and ready for upload');
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      alert('Failed to process image. Please try another image.');
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -69,7 +137,7 @@ export const Inventory: React.FC = () => {
     return Number((cartonCost / units).toFixed(2));
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!formData.name || !formData.cartonPrice || !formData.unitsPerCarton) {
       alert("Please fill required fields (Name, Price, Units/Carton)");
       return;
@@ -78,13 +146,39 @@ export const Inventory: React.FC = () => {
     const cartonCost = Number(formData.costPriceCarton) || 0;
     const unitsPerCarton = Number(formData.unitsPerCarton) || 1;
     
+    // Auto-generate barcode if not provided (to avoid unique constraint conflicts)
+    const autoBarcode = formData.barcode?.trim() || `AUTO-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+    
+    const productId = editingProduct?.id || generateUUID();
+    const shopId = editingProduct?.shopId || settings?.shopId || '';
+    
+    // Upload image to Supabase Storage if a new file was selected
+    let finalImageUrl = imagePreview || editingProduct?.image || '';
+    
+    if (uploadedImageFile && shopId) {
+      try {
+        setUploadingImage(true);
+        const { uploadProductImage } = await import('../services/supabase/storage');
+        finalImageUrl = await uploadProductImage(uploadedImageFile, productId, shopId);
+        console.log('✅ Image uploaded to Supabase:', finalImageUrl);
+      } catch (error) {
+        console.error('❌ Failed to upload image:', error);
+        alert('Failed to upload image. Product will be saved without image.');
+        // Continue without image
+        finalImageUrl = editingProduct?.image || '';
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+    
     const productData: Product = {
-      id: editingProduct?.id || Date.now().toString(),
+      id: productId,
+      shopId: shopId,
       name: formData.name,
-      barcode: formData.barcode || '',
+      barcode: autoBarcode,
       category: formData.category || 'General',
-      supplierId: formData.supplierId, // New field
-      image: imagePreview,
+      supplierId: formData.supplierId,
+      image: finalImageUrl,
       
       cartonPrice: Number(formData.cartonPrice),
       unitPrice: Number(formData.unitPrice) || 0,
@@ -101,7 +195,8 @@ export const Inventory: React.FC = () => {
         : (Number(formData.stockCartons) || 0) * unitsPerCarton + (Number(formData.stockUnits) || 0),
 
       batchNumber: formData.batchNumber,
-      expiryDate: formData.expiryDate
+      expiryDate: formData.expiryDate,
+      createdAt: editingProduct?.createdAt || new Date().toISOString()
     };
 
     if (editingProduct) {
@@ -109,6 +204,9 @@ export const Inventory: React.FC = () => {
     } else {
       addProduct(productData);
     }
+    
+    // Reset image upload state
+    setUploadedImageFile(null);
     setShowModal(false);
   };
 
@@ -131,7 +229,7 @@ export const Inventory: React.FC = () => {
   };
 
   const getProductHistory = (productId: string) => {
-      return stockMovements.filter(m => m.productId === productId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return stockMovements.filter(m => m.productId === productId).sort((a, b) => new Date(b.createdAt || b.timestamp || 0).getTime() - new Date(a.createdAt || a.timestamp || 0).getTime());
   };
 
   const handlePrintHistory = () => {
@@ -143,7 +241,7 @@ export const Inventory: React.FC = () => {
 
       const rows = history.map(h => `
         <tr>
-            <td>${new Date(h.timestamp).toLocaleDateString()} ${new Date(h.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+            <td>${new Date(h.createdAt || h.timestamp).toLocaleDateString()} ${new Date(h.createdAt || h.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
             <td style="text-transform: capitalize">${h.type}</td>
             <td style="text-align: right; color: ${h.quantityChange > 0 ? 'green' : 'red'}">
                 ${h.quantityChange > 0 ? '+' : ''}${h.quantityChange} ${h.quantityType === 'carton' ? (Math.abs(h.quantityChange) / viewingHistoryProduct.unitsPerCarton).toFixed(1) + ' Ctn' : 'Units'}
@@ -256,6 +354,7 @@ export const Inventory: React.FC = () => {
               </select>
               <Filter className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
+          <ViewToggle viewMode={viewMode} onViewChange={setViewMode} className="hidden sm:flex" />
           {canEdit && (
             <Button onClick={handleOpenAdd} className="whitespace-nowrap shadow-lg shadow-green-100">
               <Plus className="w-5 h-5 mr-1" />
@@ -265,93 +364,264 @@ export const Inventory: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredProducts.map(p => {
-          const isLowStock = p.totalUnits < p.minStockLevel;
-          const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
-          const isExpired = daysLeft !== null && daysLeft < 0;
-          const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
-
-          return (
-            <div key={p.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-              {isLowStock && <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-bl-lg z-10" />}
-              
-              <div className="flex gap-4 mb-3">
-                <div className="w-20 h-20 bg-gray-50 rounded-xl flex-shrink-0 border border-gray-100 flex items-center justify-center overflow-hidden">
-                  {p.image ? (
-                    <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
-                  ) : (
-                    <Package className="w-8 h-8 text-gray-300" />
+      <div className="transition-all duration-300 animate-in fade-in">
+        {viewMode === 'small' && (
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+            {filteredProducts.map(p => {
+              const isLowStock = p.totalUnits < p.minStockLevel;
+              return (
+                <div key={p.id} className="bg-white rounded-xl p-2 shadow-sm border border-gray-100 hover:shadow-md transition-all relative group">
+                  {isLowStock && <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full z-10" />}
+                  <div className="w-full aspect-square bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden mb-2 border border-gray-100">
+                    {p.image ? (
+                      <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
+                    ) : (
+                      <Package className="w-5 h-5 text-gray-300" />
+                    )}
+                  </div>
+                  <p className="text-[10px] font-semibold text-gray-800 line-clamp-2 text-center leading-tight mb-1">{p.name}</p>
+                  <div className="text-center">
+                    <span className="text-[9px] text-gray-500">{t('stock')}: </span>
+                    <span className={`text-[9px] font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                      {Math.floor(p.totalUnits / p.unitsPerCarton)}c
+                    </span>
+                  </div>
+                  {canEdit && (
+                    <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(p); }} className="mt-1 w-full text-[9px] text-gray-500 hover:text-green-600">
+                      Edit
+                    </button>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-800 line-clamp-2 text-sm mb-1">{p.name}</h3>
-                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{p.category}</p>
-                  <div className="flex items-center gap-1 text-[10px] text-gray-400">
-                    <Archive className="w-3 h-3" />
-                    <span>{p.barcode || 'No Barcode'}</span>
+              );
+            })}
+          </div>
+        )}
+
+        {viewMode === 'large' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredProducts.map(p => {
+              const isLowStock = p.totalUnits < p.minStockLevel;
+              const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+              const isExpired = daysLeft !== null && daysLeft < 0;
+              const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+
+              return (
+                <div key={p.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden group">
+                  {isLowStock && <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-bl-lg z-10" />}
+                  
+                  <div className="flex gap-4 mb-3">
+                    <div className="w-20 h-20 bg-gray-50 rounded-xl flex-shrink-0 border border-gray-100 flex items-center justify-center overflow-hidden">
+                      {p.image ? (
+                        <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
+                      ) : (
+                        <Package className="w-8 h-8 text-gray-300" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-800 line-clamp-2 text-sm mb-1">{p.name}</h3>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{p.category}</p>
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                        <Archive className="w-3 h-3" />
+                        <span>{p.barcode || 'No Barcode'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                       <span className="block text-[10px] text-gray-400 uppercase font-semibold">{t('carton')}</span>
+                       <span className="font-bold text-gray-800">{settings.currency}{p.cartonPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                       <span className="block text-[10px] text-gray-400 uppercase font-semibold">{t('unit')}</span>
+                       <span className="font-bold text-gray-800">{settings.currency}{p.unitPrice.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-400 uppercase font-bold">{t('currentStock')}</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-lg font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                          {Math.floor(p.totalUnits / p.unitsPerCarton)}
+                        </span>
+                        <span className="text-xs text-gray-500 font-medium">ctn</span>
+                        <span className="text-gray-300 mx-1">/</span>
+                        <span className={`text-lg font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                           {p.totalUnits % p.unitsPerCarton}
+                        </span>
+                        <span className="text-xs text-gray-500 font-medium">units</span>
+                      </div>
+                    </div>
+                    
+                    {(isExpired || isExpiringSoon) && (
+                      <div 
+                        className={`p-2 rounded-lg flex items-center gap-1.5 ${isExpired ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}
+                        title={isExpired ? `${t('expired')}: ${p.expiryDate}` : `${t('expiresIn')} ${daysLeft} ${t('days')}`}
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-[10px] font-bold">
+                           {isExpired ? 'Exp' : `${daysLeft}d`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {canEdit && (
+                    <div className="grid grid-cols-2 gap-2 mt-auto">
+                       <Button variant="secondary" size="sm" onClick={() => handleOpenRestock(p)} className="text-xs shadow-md shadow-orange-100">
+                         {t('restock')}
+                       </Button>
+                       <div className="flex gap-2">
+                         <button onClick={() => handleOpenEdit(p)} className="flex-1 bg-white hover:bg-gray-50 text-gray-600 rounded-lg flex items-center justify-center transition-colors border border-gray-200 shadow-sm" title="Edit">
+                           <Edit className="w-4 h-4" />
+                         </button>
+                         <button onClick={() => handleViewHistory(p)} className="flex-1 bg-white hover:bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center transition-colors border border-gray-200 shadow-sm" title="History">
+                           <History className="w-4 h-4" />
+                         </button>
+                       </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {viewMode === 'list' && (
+          <div className="space-y-3">
+            {filteredProducts.map(p => {
+              const isLowStock = p.totalUnits < p.minStockLevel;
+              const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+              const isExpired = daysLeft !== null && daysLeft < 0;
+              const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+              return (
+                <div key={p.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-100 relative">
+                    {p.image ? (
+                      <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
+                    ) : (
+                      <Package className="w-8 h-8 text-gray-300" />
+                    )}
+                    {isLowStock && <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-800 text-sm mb-1">{p.name}</h3>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">{p.category}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>Barcode: {p.barcode || 'N/A'}</span>
+                      <span>Stock: {Math.floor(p.totalUnits / p.unitsPerCarton)}c {p.totalUnits % p.unitsPerCarton}u</span>
+                      <span className={isLowStock ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
+                        {isLowStock ? 'Low Stock' : 'In Stock'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <div className="text-right">
+                      <div className="text-xs text-gray-400 mb-1">Unit: {settings.currency}{p.unitPrice.toLocaleString()}</div>
+                      <div className="text-xs text-gray-400">Carton: {settings.currency}{p.cartonPrice.toLocaleString()}</div>
+                    </div>
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleOpenEdit(p)} className="p-2 bg-white hover:bg-gray-50 text-gray-600 rounded-lg transition-colors border border-gray-200" title="Edit">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleViewHistory(p)} className="p-2 bg-white hover:bg-blue-50 text-blue-500 rounded-lg transition-colors border border-gray-200" title="History">
+                          <History className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              );
+            })}
+          </div>
+        )}
 
-              <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
-                   <span className="block text-[10px] text-gray-400 uppercase font-semibold">{t('carton')}</span>
-                   <span className="font-bold text-gray-800">₦{p.cartonPrice.toLocaleString()}</span>
-                </div>
-                <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
-                   <span className="block text-[10px] text-gray-400 uppercase font-semibold">{t('unit')}</span>
-                   <span className="font-bold text-gray-800">₦{p.unitPrice.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-gray-400 uppercase font-bold">{t('currentStock')}</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className={`text-lg font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                      {Math.floor(p.totalUnits / p.unitsPerCarton)}
-                    </span>
-                    <span className="text-xs text-gray-500 font-medium">ctn</span>
-                    <span className="text-gray-300 mx-1">/</span>
-                    <span className={`text-lg font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                       {p.totalUnits % p.unitsPerCarton}
-                    </span>
-                    <span className="text-xs text-gray-500 font-medium">units</span>
+        {viewMode === 'details' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {filteredProducts.map(p => {
+              const isLowStock = p.totalUnits < p.minStockLevel;
+              const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+              const isExpired = daysLeft !== null && daysLeft < 0;
+              const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+              return (
+                <div key={p.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-lg transition-all">
+                  <div className="flex gap-5 mb-4">
+                    <div className="w-32 h-32 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 border border-gray-100 relative">
+                      {p.image ? (
+                        <img src={p.image} className="w-full h-full object-cover" alt={p.name} />
+                      ) : (
+                        <Package className="w-10 h-10 text-gray-300" />
+                      )}
+                      {isLowStock && <div className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full" />}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-gray-800 mb-2">{p.name}</h3>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">{p.category}</p>
+                      <div className="space-y-1 text-xs text-gray-500">
+                        <div>Barcode: {p.barcode || 'No Barcode'}</div>
+                        <div>Units per Carton: {p.unitsPerCarton}</div>
+                        {(isExpired || isExpiringSoon) && (
+                          <div className={isExpired ? 'text-red-600 font-bold' : 'text-orange-600 font-bold'}>
+                            {isExpired ? `Expired: ${p.expiryDate}` : `Expires in ${daysLeft} days`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                {(isExpired || isExpiringSoon) && (
-                  <div 
-                    className={`p-2 rounded-lg flex items-center gap-1.5 ${isExpired ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-600'}`}
-                    title={isExpired ? `${t('expired')}: ${p.expiryDate}` : `${t('expiresIn')} ${daysLeft} ${t('days')}`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-[10px] font-bold">
-                       {isExpired ? 'Exp' : `${daysLeft}d`}
-                    </span>
-                  </div>
-                )}
-              </div>
 
-              {canEdit && (
-                <div className="grid grid-cols-2 gap-2 mt-auto">
-                   <Button variant="secondary" size="sm" onClick={() => handleOpenRestock(p)} className="text-xs shadow-md shadow-orange-100">
-                     {t('restock')}
-                   </Button>
-                   <div className="flex gap-2">
-                     <button onClick={() => handleOpenEdit(p)} className="flex-1 bg-white hover:bg-gray-50 text-gray-600 rounded-lg flex items-center justify-center transition-colors border border-gray-200 shadow-sm" title="Edit">
-                       <Edit className="w-4 h-4" />
-                     </button>
-                     <button onClick={() => handleViewHistory(p)} className="flex-1 bg-white hover:bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center transition-colors border border-gray-200 shadow-sm" title="History">
-                       <History className="w-4 h-4" />
-                     </button>
-                   </div>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Unit Price</span>
+                      <span className="font-bold text-gray-800">{settings.currency}{p.unitPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Carton Price</span>
+                      <span className="font-bold text-gray-800">{settings.currency}{p.cartonPrice.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Cost Price (Unit)</span>
+                      <span className="font-bold text-gray-800">{settings.currency}{p.costPriceUnit.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Cost Price (Carton)</span>
+                      <span className="font-bold text-gray-800">{settings.currency}{p.costPriceCarton.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-4 border-t border-dashed border-gray-100">
+                    <div>
+                      <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Stock Level</span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                          {Math.floor(p.totalUnits / p.unitsPerCarton)} Cartons, {p.totalUnits % p.unitsPerCarton} Units
+                        </span>
+                        {isLowStock && <span className="text-xs text-red-600 font-bold">(Low Stock)</span>}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">Total Units: {p.totalUnits} | Min Level: {p.minStockLevel}</div>
+                    </div>
+                  </div>
+
+                  {canEdit && (
+                    <div className="flex gap-2 mt-4">
+                      <Button variant="secondary" size="sm" onClick={() => handleOpenRestock(p)} className="flex-1 text-xs">
+                        <Truck className="w-4 h-4 mr-1" />
+                        {t('restock')}
+                      </Button>
+                      <button onClick={() => handleOpenEdit(p)} className="px-4 bg-white hover:bg-gray-50 text-gray-600 rounded-lg transition-colors border border-gray-200" title="Edit">
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleViewHistory(p)} className="px-4 bg-white hover:bg-blue-50 text-blue-500 rounded-lg transition-colors border border-gray-200" title="History">
+                        <History className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Product Modal (Add/Edit) */}
@@ -371,11 +641,18 @@ export const Inventory: React.FC = () => {
                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 pb-2">{t('basicInfo')}</h4>
                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="col-span-1">
-                         <div 
-                           onClick={() => fileInputRef.current?.click()}
-                           className="aspect-square rounded-2xl border-2 border-dashed border-gray-200 hover:border-green-500 hover:bg-green-50/30 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden relative group bg-gray-50"
+                         <div
+                           onClick={() => !uploadingImage && fileInputRef.current?.click()}        
+                           className={`aspect-square rounded-2xl border-2 border-dashed border-gray-200 hover:border-green-500 hover:bg-green-50/30 flex flex-col items-center justify-center transition-all overflow-hidden relative group bg-gray-50 ${
+                             uploadingImage ? 'cursor-wait opacity-60' : 'cursor-pointer'
+                           }`}
                          >
-                            {imagePreview ? (
+                            {uploadingImage ? (
+                              <div className="flex flex-col items-center justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mb-2"></div>
+                                <span className="text-xs text-gray-500 font-medium">Compressing image...</span>
+                              </div>
+                            ) : imagePreview ? (
                               <>
                                 <img src={imagePreview} className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -386,14 +663,16 @@ export const Inventory: React.FC = () => {
                               <>
                                 <UploadCloud className="w-8 h-8 text-gray-400 mb-2 group-hover:text-green-500 transition-colors" />
                                 <span className="text-xs text-gray-500 font-medium">{t('uploadImage')}</span>
+                                <span className="text-[10px] text-gray-400 mt-1">Max 10MB, auto-compressed</span>
                               </>
                             )}
-                            <input 
-                              type="file" 
-                              ref={fileInputRef} 
-                              className="hidden" 
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              className="hidden"
                               accept="image/*"
                               onChange={handleImageUpload}
+                              disabled={uploadingImage}
                             />
                          </div>
                       </div>
@@ -596,8 +875,21 @@ export const Inventory: React.FC = () => {
               </div>
 
               <div className="p-6 border-t border-gray-100 flex gap-4 bg-white sticky bottom-0 z-10">
-                 <Button className="flex-1 py-3 text-lg font-bold shadow-lg shadow-green-200" onClick={handleSaveProduct}>{t('save')}</Button>
-                 <Button variant="outline" className="flex-1 py-3 border-gray-200 bg-white" onClick={() => setShowModal(false)}>{t('cancel')}</Button>
+                 <Button 
+                   className="flex-1 py-3 text-lg font-bold shadow-lg shadow-green-200" 
+                   onClick={handleSaveProduct}
+                   disabled={uploadingImage}
+                 >
+                   {uploadingImage ? 'Uploading Image...' : t('save')}
+                 </Button>
+                 <Button 
+                   variant="outline" 
+                   className="flex-1 py-3 border-gray-200 bg-white" 
+                   onClick={() => setShowModal(false)}
+                   disabled={uploadingImage}
+                 >
+                   {t('cancel')}
+                 </Button>
               </div>
            </div>
         </div>
@@ -709,8 +1001,8 @@ export const Inventory: React.FC = () => {
                                {history.map(h => (
                                   <tr key={h.id} className="hover:bg-gray-50 transition-colors">
                                      <td className="p-4 text-gray-600">
-                                        <div className="font-medium">{new Date(h.timestamp).toLocaleDateString()}</div>
-                                        <div className="text-[10px] text-gray-400">{new Date(h.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                                        <div className="font-medium">{new Date(h.createdAt || h.timestamp).toLocaleDateString()}</div>
+                                        <div className="text-[10px] text-gray-400">{new Date(h.createdAt || h.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
                                      </td>
                                      <td className="p-4">
                                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${

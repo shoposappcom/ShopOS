@@ -2,13 +2,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
+import { ViewToggle } from '../components/ViewToggle';
+import { ViewMode, loadViewMode, saveViewMode, PAGE_IDS, DEFAULT_VIEW_MODE } from '../utils/viewMode';
 import { Gift, Plus, Printer, Trash2, Search, Download, Calendar, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { GiftCard } from '../types';
 import { GIFT_CARD_THEMES } from '../constants';
+import { generateUUID } from '../services/supabase/client';
 import html2canvas from 'html2canvas';
 
 export const GiftCards: React.FC = () => {
-  const { giftCards, t, addGiftCard, deleteGiftCard, settings, hasPermission } = useStore();
+  const { giftCards, t, addGiftCard, deleteGiftCard, settings, hasPermission, currentUser } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -21,6 +24,30 @@ export const GiftCards: React.FC = () => {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const CARDS_PER_PAGE = 20;
+
+  // View Mode State
+  const [viewMode, setViewMode] = useState<ViewMode>(DEFAULT_VIEW_MODE);
+  
+  // Load view mode from Supabase on mount
+  useEffect(() => {
+    const loadMode = async () => {
+      if (settings?.shopId && currentUser?.id) {
+        const mode = await loadViewMode(PAGE_IDS.GIFT_CARDS, settings.shopId, currentUser.id);
+        setViewMode(mode);
+      } else {
+        const mode = await loadViewMode(PAGE_IDS.GIFT_CARDS);
+        setViewMode(mode);
+      }
+    };
+    loadMode();
+  }, [settings?.shopId, currentUser?.id]);
+  
+  // Save view mode to Supabase
+  useEffect(() => {
+    if (settings?.shopId && currentUser?.id && viewMode !== DEFAULT_VIEW_MODE) {
+      saveViewMode(PAGE_IDS.GIFT_CARDS, viewMode, settings.shopId, currentUser.id);
+    }
+  }, [viewMode, settings?.shopId, currentUser?.id]);
 
   // Refs for download
   const cardRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
@@ -54,7 +81,8 @@ export const GiftCards: React.FC = () => {
                      Math.random().toString(36).substring(2, 6).toUpperCase();
         
         const newCard: GiftCard = {
-            id: Date.now().toString() + i,
+            id: generateUUID(),
+            shopId: settings?.shopId || '',
             code,
             initialValue: createAmount,
             balance: createAmount,
@@ -263,6 +291,7 @@ export const GiftCards: React.FC = () => {
                onChange={(e) => setSearchTerm(e.target.value)}
              />
           </div>
+          <ViewToggle viewMode={viewMode} onViewChange={setViewMode} className="hidden sm:flex" />
           <Button onClick={() => setShowModal(true)} className="whitespace-nowrap shadow-lg shadow-green-100 bg-green-600 hover:bg-green-700">
              <Plus className="w-5 h-5 mr-1" />
              <span className="hidden sm:inline">{t('createGiftCard')}</span>
@@ -270,103 +299,264 @@ export const GiftCards: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-         {displayedCards.length === 0 ? (
-            <div className="col-span-full py-16 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200">
-                <Gift className="w-12 h-12 mx-auto mb-2 opacity-20" />
-                <p>No gift cards found</p>
-            </div>
-         ) : (
-            displayedCards.map(card => {
-                const themeClass = GIFT_CARD_THEMES[card.theme];
-                const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
-                const isActive = card.status === 'active' && card.balance > 0 && !isExpired;
-                
-                return (
-                    <div key={card.id} className={`relative group perspective-1000 ${!isActive ? 'opacity-70 grayscale' : ''}`}>
-                         {/* Card Layout Wrapper for ref */}
-                         <div id={`card-${card.id}`} ref={el => cardRefs.current[card.id] = el}>
-                            <div className={`relative w-full aspect-[2/1] rounded-2xl overflow-hidden shadow-2xl transform transition-transform hover:scale-[1.02] duration-300 bg-gray-900 text-white`}>
-                                
-                                {/* Gradient Background */}
-                                <div className={`absolute inset-0 bg-gradient-to-br ${themeClass}`}></div>
-                                
-                                {/* IMG Tag for Striped Pattern */}
-                                {(card.theme === 'standard' || card.theme === 'dark') && (
-                                    <img src={stripeSvg} className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none" alt="" />
-                                )}
-
-                                {/* Glossy Sheen */}
-                                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20 pointer-events-none"></div>
-
-                                {/* Content using Absolute Positioning for Stability on Mobile */}
-                                <div className="relative h-full w-full z-10">
-                                    {/* Top Left - Business Name */}
-                                    <div className="absolute top-4 left-4 max-w-[55%] biz-name-container">
-                                        <h3 className="font-bold text-sm sm:text-lg tracking-wider uppercase font-sans drop-shadow-md leading-none truncate block biz-name-text">
-                                            {settings.businessName}
-                                        </h3>
-                                    </div>
-                                    
-                                    {/* Top Right - Label */}
-                                    <div className="absolute top-4 right-4 card-label-container">
-                                        <span className="text-[9px] sm:text-[10px] font-bold border border-white/30 px-2 py-1 rounded backdrop-blur-sm leading-none inline-block">
-                                            GIFT CARD
-                                        </span>
-                                    </div>
-                                    
-                                    {/* Center - Code */}
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <p className="font-mono text-lg sm:text-2xl font-bold tracking-widest drop-shadow-md tabular-nums text-center leading-none">
-                                            {card.code}
-                                        </p>
-                                    </div>
-
-                                    {/* Bottom Left - Expiry */}
-                                    <div className="absolute bottom-4 left-4 text-[9px] sm:text-[10px] opacity-80 leading-tight">
-                                        <p className="font-light">VALID THRU</p>
-                                        <p className="font-bold">
-                                            {card.expiresAt 
-                                                ? new Date(card.expiresAt).toLocaleDateString(undefined, {month:'2-digit', year:'2-digit'})
-                                                : 'NO EXP'
-                                            }
-                                        </p>
-                                    </div>
-
-                                    {/* Bottom Right - Balance */}
-                                    <div className="absolute bottom-4 right-4 text-right leading-tight">
-                                        <p className="text-[9px] sm:text-[10px] opacity-80 font-bold">BALANCE</p>
-                                        <p className="text-lg sm:text-xl font-bold tabular-nums">
-                                            {settings.currency}{card.balance.toLocaleString()}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                         </div>
-
-                         {/* Actions Overlay */}
-                         <div className="mt-3 flex justify-between items-center px-2">
-                             <div>
-                                 <span className={`text-xs font-bold px-2 py-0.5 rounded ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                     {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
-                                 </span>
-                             </div>
-                             <div className="flex gap-2">
-                                 <button onClick={() => downloadCardImage(card)} className="p-2 bg-white hover:bg-blue-50 text-blue-600 rounded-full shadow-sm border border-gray-200 transition-all" title="Download Image">
-                                     <Download className="w-4 h-4" />
-                                 </button>
-                                 <button onClick={() => printCard(card)} className="p-2 bg-white hover:bg-gray-100 text-gray-700 rounded-full shadow-sm border border-gray-200 transition-all" title="Print">
-                                     <Printer className="w-4 h-4" />
-                                 </button>
-                                 <button onClick={() => deleteGiftCard(card.id)} className="p-2 bg-white hover:bg-red-50 text-red-500 rounded-full shadow-sm border border-gray-200 transition-all" title="Delete">
-                                     <Trash2 className="w-4 h-4" />
-                                 </button>
-                             </div>
-                         </div>
+      <div className="transition-all duration-300 animate-in fade-in">
+        {displayedCards.length === 0 ? (
+          <div className="col-span-full py-16 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-200">
+            <Gift className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p>No gift cards found</p>
+          </div>
+        ) : (
+          <>
+            {/* Small Icons View */}
+            {viewMode === 'small' && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
+                {displayedCards.map(card => {
+                  const themeClass = GIFT_CARD_THEMES[card.theme];
+                  const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
+                  const isActive = card.status === 'active' && card.balance > 0 && !isExpired;
+                  return (
+                    <div key={card.id} className={`relative ${!isActive ? 'opacity-70 grayscale' : ''}`}>
+                      <div id={`card-${card.id}`} ref={el => cardRefs.current[card.id] = el}>
+                        <div className={`relative w-full aspect-[2/1] rounded-lg overflow-hidden shadow-md bg-gray-900 text-white`}>
+                          <div className={`absolute inset-0 bg-gradient-to-br ${themeClass}`}></div>
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20"></div>
+                          <div className="relative h-full w-full z-10 flex items-center justify-center">
+                            <p className="font-mono text-xs font-bold tracking-wider drop-shadow-md">{card.code}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-2 text-center">
+                        <p className="text-[10px] font-bold text-gray-700">{settings.currency}{card.balance.toLocaleString()}</p>
+                        <p className={`text-[9px] ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                          {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
+                        </p>
+                      </div>
                     </div>
-                );
-            })
-         )}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Large Icons View (Current) */}
+            {viewMode === 'large' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                {displayedCards.map(card => {
+                  const themeClass = GIFT_CARD_THEMES[card.theme];
+                  const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
+                  const isActive = card.status === 'active' && card.balance > 0 && !isExpired;
+                  return (
+                    <div key={card.id} className={`relative group perspective-1000 ${!isActive ? 'opacity-70 grayscale' : ''}`}>
+                      <div id={`card-${card.id}`} ref={el => cardRefs.current[card.id] = el}>
+                        <div className={`relative w-full aspect-[2/1] rounded-2xl overflow-hidden shadow-2xl transform transition-transform hover:scale-[1.02] duration-300 bg-gray-900 text-white`}>
+                          <div className={`absolute inset-0 bg-gradient-to-br ${themeClass}`}></div>
+                          {(card.theme === 'standard' || card.theme === 'dark') && (
+                            <img src={stripeSvg} className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none" alt="" />
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20 pointer-events-none"></div>
+                          <div className="relative h-full w-full z-10">
+                            <div className="absolute top-4 left-4 max-w-[55%] biz-name-container">
+                              <h3 className="font-bold text-sm sm:text-lg tracking-wider uppercase font-sans drop-shadow-md leading-none truncate block biz-name-text">
+                                {settings.businessName}
+                              </h3>
+                            </div>
+                            <div className="absolute top-4 right-4 card-label-container">
+                              <span className="text-[9px] sm:text-[10px] font-bold border border-white/30 px-2 py-1 rounded backdrop-blur-sm leading-none inline-block">
+                                GIFT CARD
+                              </span>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <p className="font-mono text-lg sm:text-2xl font-bold tracking-widest drop-shadow-md tabular-nums text-center leading-none">
+                                {card.code}
+                              </p>
+                            </div>
+                            <div className="absolute bottom-4 left-4 text-[9px] sm:text-[10px] opacity-80 leading-tight">
+                              <p className="font-light">VALID THRU</p>
+                              <p className="font-bold">
+                                {card.expiresAt 
+                                  ? new Date(card.expiresAt).toLocaleDateString(undefined, {month:'2-digit', year:'2-digit'})
+                                  : 'NO EXP'
+                                }
+                              </p>
+                            </div>
+                            <div className="absolute bottom-4 right-4 text-right leading-tight">
+                              <p className="text-[9px] sm:text-[10px] opacity-80 font-bold">BALANCE</p>
+                              <p className="text-lg sm:text-xl font-bold tabular-nums">
+                                {settings.currency}{card.balance.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex justify-between items-center px-2">
+                        <div>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => downloadCardImage(card)} className="p-2 bg-white hover:bg-blue-50 text-blue-600 rounded-full shadow-sm border border-gray-200 transition-all" title="Download Image">
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => printCard(card)} className="p-2 bg-white hover:bg-gray-100 text-gray-700 rounded-full shadow-sm border border-gray-200 transition-all" title="Print">
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteGiftCard(card.id)} className="p-2 bg-white hover:bg-red-50 text-red-500 rounded-full shadow-sm border border-gray-200 transition-all" title="Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* List View */}
+            {viewMode === 'list' && (
+              <div className="space-y-3">
+                {displayedCards.map(card => {
+                  const themeClass = GIFT_CARD_THEMES[card.theme];
+                  const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
+                  const isActive = card.status === 'active' && card.balance > 0 && !isExpired;
+                  return (
+                    <div key={card.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all flex items-center gap-4">
+                      <div className="w-32 flex-shrink-0">
+                        <div id={`card-${card.id}`} ref={el => cardRefs.current[card.id] = el}>
+                          <div className={`relative w-full aspect-[2/1] rounded-lg overflow-hidden shadow-md bg-gray-900 text-white ${!isActive ? 'opacity-70 grayscale' : ''}`}>
+                            <div className={`absolute inset-0 bg-gradient-to-br ${themeClass}`}></div>
+                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20"></div>
+                            <div className="relative h-full w-full z-10 flex items-center justify-center">
+                              <p className="font-mono text-xs font-bold tracking-wider drop-shadow-md">{card.code}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-800 text-sm mb-1">Code: {card.code}</h3>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <span>Initial: {settings.currency}{card.initialValue.toLocaleString()}</span>
+                          <span>Balance: {settings.currency}{card.balance.toLocaleString()}</span>
+                          {card.expiresAt && (
+                            <span>Expires: {new Date(card.expiresAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className={`text-xs font-bold px-2 py-1 rounded ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
+                        </span>
+                        <div className="flex gap-2">
+                          <button onClick={() => downloadCardImage(card)} className="p-2 bg-white hover:bg-blue-50 text-blue-600 rounded-lg transition-colors border border-gray-200" title="Download">
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => printCard(card)} className="p-2 bg-white hover:bg-gray-100 text-gray-700 rounded-lg transition-colors border border-gray-200" title="Print">
+                            <Printer className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteGiftCard(card.id)} className="p-2 bg-white hover:bg-red-50 text-red-500 rounded-lg transition-colors border border-gray-200" title="Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Details View */}
+            {viewMode === 'details' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {displayedCards.map(card => {
+                  const themeClass = GIFT_CARD_THEMES[card.theme];
+                  const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;
+                  const isActive = card.status === 'active' && card.balance > 0 && !isExpired;
+                  return (
+                    <div key={card.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-lg transition-all">
+                      <div className={`relative group perspective-1000 ${!isActive ? 'opacity-70 grayscale' : ''}`}>
+                        <div id={`card-${card.id}`} ref={el => cardRefs.current[card.id] = el}>
+                          <div className={`relative w-full aspect-[2/1] rounded-2xl overflow-hidden shadow-2xl bg-gray-900 text-white mb-4`}>
+                            <div className={`absolute inset-0 bg-gradient-to-br ${themeClass}`}></div>
+                            {(card.theme === 'standard' || card.theme === 'dark') && (
+                              <img src={stripeSvg} className="absolute inset-0 w-full h-full object-cover opacity-100 pointer-events-none" alt="" />
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/5 to-white/20 pointer-events-none"></div>
+                            <div className="relative h-full w-full z-10">
+                              <div className="absolute top-4 left-4 max-w-[55%] biz-name-container">
+                                <h3 className="font-bold text-sm sm:text-lg tracking-wider uppercase font-sans drop-shadow-md leading-none truncate block biz-name-text">
+                                  {settings.businessName}
+                                </h3>
+                              </div>
+                              <div className="absolute top-4 right-4 card-label-container">
+                                <span className="text-[9px] sm:text-[10px] font-bold border border-white/30 px-2 py-1 rounded backdrop-blur-sm leading-none inline-block">
+                                  GIFT CARD
+                                </span>
+                              </div>
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <p className="font-mono text-lg sm:text-2xl font-bold tracking-widest drop-shadow-md tabular-nums text-center leading-none">
+                                  {card.code}
+                                </p>
+                              </div>
+                              <div className="absolute bottom-4 left-4 text-[9px] sm:text-[10px] opacity-80 leading-tight">
+                                <p className="font-light">VALID THRU</p>
+                                <p className="font-bold">
+                                  {card.expiresAt 
+                                    ? new Date(card.expiresAt).toLocaleDateString(undefined, {month:'2-digit', year:'2-digit'})
+                                    : 'NO EXP'
+                                  }
+                                </p>
+                              </div>
+                              <div className="absolute bottom-4 right-4 text-right leading-tight">
+                                <p className="text-[9px] sm:text-[10px] opacity-80 font-bold">BALANCE</p>
+                                <p className="text-lg sm:text-xl font-bold tabular-nums">
+                                  {settings.currency}{card.balance.toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                          <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Initial Value</span>
+                          <span className="font-bold text-gray-800">{settings.currency}{card.initialValue.toLocaleString()}</span>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                          <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Current Balance</span>
+                          <span className="font-bold text-gray-800">{settings.currency}{card.balance.toLocaleString()}</span>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                          <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Status</span>
+                          <span className={`font-bold ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isExpired ? 'Expired' : (card.balance <= 0 ? 'Empty' : 'Active')}
+                          </span>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                          <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Theme</span>
+                          <span className="font-bold text-gray-800 capitalize">{card.theme}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-4 border-t border-dashed border-gray-100">
+                        <button onClick={() => downloadCardImage(card)} className="flex-1 px-4 py-2 bg-white hover:bg-blue-50 text-blue-600 rounded-xl transition-colors border border-gray-200 flex items-center justify-center gap-2">
+                          <Download className="w-4 h-4" />
+                          <span className="text-sm font-semibold">Download</span>
+                        </button>
+                        <button onClick={() => printCard(card)} className="flex-1 px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 rounded-xl transition-colors border border-gray-200 flex items-center justify-center gap-2">
+                          <Printer className="w-4 h-4" />
+                          <span className="text-sm font-semibold">Print</span>
+                        </button>
+                        <button onClick={() => deleteGiftCard(card.id)} className="px-4 py-2 bg-white hover:bg-red-50 text-red-500 rounded-xl transition-colors border border-gray-200" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Pagination Controls */}

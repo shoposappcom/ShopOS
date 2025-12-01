@@ -4,9 +4,10 @@ import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense } from '../types';
 import { User as UserIcon, Shield, Globe, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { generateUUID } from '../services/supabase/client';
 
 export const Settings: React.FC = () => {
-  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, enableAI, toggleAI, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense } = useStore();
+  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense } = useStore();
   const [activeTab, setActiveTab] = useState<'users' | 'profile' | 'logs' | 'business' | 'categories' | 'suppliers' | 'expenses'>('profile');
   
   // User Management State
@@ -55,7 +56,8 @@ export const Settings: React.FC = () => {
       updateUser(editingUser as User);
     } else {
       const newUser: User = {
-        id: Date.now().toString(),
+        id: generateUUID(),
+        shopId: settings?.shopId || '',
         username: editingUser.username,
         password: editingUser.password || 'password123',
         fullName: editingUser.fullName,
@@ -91,7 +93,12 @@ export const Settings: React.FC = () => {
      if (editingCat.id) {
         editCategory(editingCat as Category);
      } else {
-        addCategory({ id: Date.now().toString(), name: editingCat.name });
+        addCategory({ 
+          id: generateUUID(), 
+          shopId: settings?.shopId || '', 
+          name: editingCat.name,
+          createdAt: new Date().toISOString()
+        });
      }
      setShowCatModal(false);
      setEditingCat(null);
@@ -103,11 +110,13 @@ export const Settings: React.FC = () => {
         editSupplier(editingSup as Supplier);
      } else {
         addSupplier({ 
-            id: Date.now().toString(), 
+            id: generateUUID(), 
+            shopId: settings?.shopId || '',
             name: editingSup.name, 
             phone: editingSup.phone, 
             contactPerson: editingSup.contactPerson || '',
-            address: editingSup.address || '' 
+            address: editingSup.address || '',
+            createdAt: new Date().toISOString()
         });
      }
      setShowSupModal(false);
@@ -117,12 +126,14 @@ export const Settings: React.FC = () => {
   const handleSaveExpense = () => {
      if (!editingExp?.description || !editingExp.amount) return;
      addExpense({ 
-        id: Date.now().toString(), 
+        id: generateUUID(), 
+        shopId: settings?.shopId || '',
         description: editingExp.description,
         amount: Number(editingExp.amount),
         category: editingExp.category || 'General',
         date: editingExp.date || new Date().toISOString(),
-        recordedBy: currentUser?.fullName || 'Unknown'
+        recordedByUserId: currentUser?.id || 'unknown',
+        createdAt: new Date().toISOString()
      });
      setShowExpModal(false);
      setEditingExp(null);
@@ -230,27 +241,13 @@ export const Settings: React.FC = () => {
                   </div>
                </div>
 
-               {isAdmin && (
-                 <div className="pt-6 border-t border-gray-100">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-purple-600" />
-                            <h4 className="font-bold text-gray-800">{t('aiSettings')}</h4>
-                        </div>
-                        <div className="relative inline-block w-12 mr-2 align-middle select-none transition duration-200 ease-in">
-                            <input 
-                                type="checkbox" 
-                                checked={enableAI}
-                                onChange={(e) => toggleAI(e.target.checked)}
-                                className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300"
-                                style={{ transform: enableAI ? 'translateX(100%)' : '', borderColor: enableAI ? '#10B981' : '#E5E7EB' }}
-                            />
-                            <div className={`toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors duration-300 ${enableAI ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-500">Enable Gemini AI Assistant for smart insights and automated actions.</p>
+               <div className="pt-6 border-t border-gray-100">
+                 <div className="flex items-center gap-2 mb-2">
+                   <Sparkles className="w-5 h-5 text-purple-600" />
+                   <h4 className="font-bold text-gray-800">{t('aiSettings')}</h4>
                  </div>
-               )}
+                 <p className="text-sm text-gray-500">AI Chat is managed by admin. Contact support if you need to enable or disable AI features.</p>
+               </div>
             </div>
           )}
 

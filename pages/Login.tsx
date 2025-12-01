@@ -10,7 +10,7 @@ export const Login: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   
   // Login State
-  const [username, setUsername] = useState('');
+  const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   
   // Registration State
@@ -29,12 +29,16 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
     
-    setTimeout(() => {
-        if (!login(username, password)) {
+    try {
+        const success = await login(usernameOrEmail, password);
+        if (!success) {
             setError('Invalid credentials or account inactive.');
         }
+    } catch (err) {
+        setError('Login failed. Please try again.');
+    } finally {
         setLoading(false);
-    }, 600);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -47,8 +51,8 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
 
-    setTimeout(() => {
-        const success = registerShop({
+    try {
+        const success = await registerShop({
             fullName,
             email,
             shopName,
@@ -60,8 +64,11 @@ export const Login: React.FC = () => {
         if (!success) {
             setError('Registration failed. Try again.');
         }
+    } catch (err) {
+        setError('Registration failed. Please try again.');
+    } finally {
         setLoading(false);
-    }, 1000);
+    }
   };
 
   const cycleLang = () => {
@@ -70,11 +77,19 @@ export const Login: React.FC = () => {
     setLanguage(next);
   };
 
-  const handleQuickLogin = (role: string) => {
-      // Demo Credentials from constants.ts
-      if (role === 'admin') login('admin', 'password123');
-      if (role === 'manager') login('manager', 'password123');
-      if (role === 'cashier') login('cashier', 'password123');
+  const handleQuickLogin = async (role: string) => {
+      // Test Account Credentials
+      setLoading(true);
+      try {
+        if (role === 'admin') await login('admin', 'password123');
+        if (role === 'manager') await login('manager', 'password123');
+        if (role === 'cashier') await login('cashier', 'password123');
+        if (role === 'stock') await login('stock', 'password123');
+      } catch (err) {
+        setError('Quick login failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
   };
 
   const availableStates = COUNTRIES_STATES[country] || [];
@@ -89,10 +104,11 @@ export const Login: React.FC = () => {
         {/* Top Bar */}
         <div className="bg-white p-6 pb-0 flex justify-between items-center">
             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-green-200">
-                    S
-                </div>
-                <span className="font-bold text-gray-800 tracking-tight">ShopOS</span>
+                <img 
+                    src="https://i.ibb.co/1tRs3MMv/Adobe-Express-file-1.png" 
+                    alt="ShopOS Logo" 
+                    className="h-10 w-auto object-contain"
+                />
             </div>
             <button 
                 onClick={cycleLang} 
@@ -219,14 +235,15 @@ export const Login: React.FC = () => {
              <div className="space-y-6">
                 <form onSubmit={handleLogin} className="space-y-5">
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">{t('username')}</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">Username or Email</label>
                         <div className="relative">
                             <UserIcon className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                             <input 
+                                type="text"
                                 className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium transition-all text-gray-900"
-                                placeholder="Enter username"
-                                value={username}
-                                onChange={e => setUsername(e.target.value)}
+                                placeholder="Enter username or email"
+                                value={usernameOrEmail}
+                                onChange={e => setUsernameOrEmail(e.target.value)}
                                 autoFocus
                             />
                         </div>
@@ -256,14 +273,16 @@ export const Login: React.FC = () => {
                     </button>
                 </form>
 
-                {/* Quick Login Section */}
+                {/* Quick Login Section - Test Accounts */}
                 <div className="border-t border-gray-100 pt-4">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase text-center mb-3 tracking-wider">{t('quickLogin')}</p>
-                    <div className="grid grid-cols-3 gap-2">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase text-center mb-3 tracking-wider">Test Accounts (Demo)</p>
+                    <div className="grid grid-cols-2 gap-2">
                         <button onClick={() => handleQuickLogin('admin')} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs font-medium text-gray-600 border border-gray-100 transition-colors">Admin</button>
                         <button onClick={() => handleQuickLogin('manager')} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs font-medium text-gray-600 border border-gray-100 transition-colors">Manager</button>
                         <button onClick={() => handleQuickLogin('cashier')} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs font-medium text-gray-600 border border-gray-100 transition-colors">Cashier</button>
+                        <button onClick={() => handleQuickLogin('stock')} className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-xs font-medium text-gray-600 border border-gray-100 transition-colors">Stock</button>
                     </div>
+                    <p className="text-[9px] text-gray-400 text-center mt-2">All test accounts use password: password123</p>
                 </div>
              </div>
           )}
