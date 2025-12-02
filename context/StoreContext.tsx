@@ -551,23 +551,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             // Also load full shop data
             const fullShopData = await db.loadAllShopData(user.shopId);
             
-            // Update state with Supabase data
+            // CRITICAL: REPLACE all data with current shop's data to prevent data mixing
+            // Do NOT merge with previous shop's data
             setState(prev => ({
               ...prev,
-              users: fullShopData.users.length > 0 ? fullShopData.users : prev.users,
-              products: fullShopData.products.length > 0 ? fullShopData.products : prev.products,
-              categories: fullShopData.categories.length > 0 ? fullShopData.categories : prev.categories,
-              suppliers: fullShopData.suppliers.length > 0 ? fullShopData.suppliers : prev.suppliers,
-              expenses: fullShopData.expenses.length > 0 ? fullShopData.expenses : prev.expenses,
-              sales: fullShopData.sales.length > 0 ? fullShopData.sales : prev.sales,
-              customers: fullShopData.customers.length > 0 ? fullShopData.customers : prev.customers,
-              debtTransactions: fullShopData.debtTransactions.length > 0 ? fullShopData.debtTransactions : prev.debtTransactions,
-              stockMovements: fullShopData.stockMovements.length > 0 ? fullShopData.stockMovements : prev.stockMovements,
-              giftCards: fullShopData.giftCards.length > 0 ? fullShopData.giftCards : prev.giftCards,
-              activityLogs: fullShopData.activityLogs.length > 0 ? fullShopData.activityLogs : prev.activityLogs,
+              // Always use the loaded shop data, or empty arrays if none exists
+              users: fullShopData.users || [],
+              products: fullShopData.products || [],
+              categories: fullShopData.categories || [],
+              suppliers: fullShopData.suppliers || [],
+              expenses: fullShopData.expenses || [],
+              sales: fullShopData.sales || [],
+              customers: fullShopData.customers || [],
+              debtTransactions: fullShopData.debtTransactions || [],
+              stockMovements: fullShopData.stockMovements || [],
+              giftCards: fullShopData.giftCards || [],
+              activityLogs: fullShopData.activityLogs || [],
               settings: fullShopData.settings || shopSettings || prev.settings,
               subscription: fullShopData.subscription || subscription || prev.subscription,
-              payments: fullShopData.payments.length > 0 ? fullShopData.payments : prev.payments,
+              payments: fullShopData.payments || [],
             }));
             
             console.log('✅ Shop data loaded from Supabase');
@@ -587,6 +589,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           (u.email && u.email.toLowerCase() === usernameOrEmail.toLowerCase());
         return matchesCredential && u.password === pin;
       }) || null;
+      
+      // If local user found, filter all data by their shopId to prevent data mixing
+      if (user && user.shopId) {
+        console.log('🔍 Filtering local data by shopId:', user.shopId);
+        const userShopId = user.shopId;
+        
+        // Filter all data to only include current shop's data
+        setState(prev => ({
+          ...prev,
+          users: prev.users.filter(u => u.shopId === userShopId),
+          products: prev.products.filter(p => p.shopId === userShopId),
+          categories: prev.categories.filter(c => c.shopId === userShopId),
+          suppliers: prev.suppliers.filter(s => s.shopId === userShopId),
+          expenses: prev.expenses.filter(e => e.shopId === userShopId),
+          sales: prev.sales.filter(s => s.shopId === userShopId),
+          customers: prev.customers.filter(c => c.shopId === userShopId),
+          debtTransactions: prev.debtTransactions.filter(dt => dt.shopId === userShopId),
+          stockMovements: prev.stockMovements.filter(sm => sm.shopId === userShopId),
+          giftCards: prev.giftCards.filter(gc => gc.shopId === userShopId),
+          activityLogs: prev.activityLogs.filter(al => al.shopId === userShopId),
+          settings: prev.settings?.shopId === userShopId ? prev.settings : null,
+          subscription: prev.subscription?.shopId === userShopId ? prev.subscription : null,
+          payments: prev.payments.filter(p => p.shopId === userShopId),
+        }));
+        
+        console.log('✅ Local data filtered by shopId');
+      }
     }
     
     // Process authenticated user
@@ -617,13 +646,55 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       
       const updatedUser = { ...user, lastLogin: new Date().toISOString() };
-      setState(prev => ({ 
-        ...prev, 
-        currentUser: updatedUser,
-        users: prev.users.some(u => u.id === user!.id) 
-          ? prev.users.map(u => u.id === user!.id ? updatedUser : u)
-          : [...prev.users, updatedUser]
-      }));
+      
+      // If we have a shopId, ensure we reload fresh data from Supabase (if online) to prevent data mixing
+      if (user.shopId && isValidUUID(user.shopId) && isOnline()) {
+        try {
+          console.log('🔄 Reloading fresh shop data after login...');
+          const freshShopData = await db.loadAllShopData(user.shopId);
+          
+          // REPLACE all data with fresh shop data
+          setState(prev => ({
+            ...prev,
+            currentUser: updatedUser,
+            users: freshShopData.users || [],
+            products: freshShopData.products || [],
+            categories: freshShopData.categories || [],
+            suppliers: freshShopData.suppliers || [],
+            expenses: freshShopData.expenses || [],
+            sales: freshShopData.sales || [],
+            customers: freshShopData.customers || [],
+            debtTransactions: freshShopData.debtTransactions || [],
+            stockMovements: freshShopData.stockMovements || [],
+            giftCards: freshShopData.giftCards || [],
+            activityLogs: freshShopData.activityLogs || [],
+            settings: freshShopData.settings || prev.settings,
+            subscription: freshShopData.subscription || prev.subscription,
+            payments: freshShopData.payments || [],
+          }));
+          
+          console.log('✅ Fresh shop data loaded');
+        } catch (error) {
+          console.error('Failed to reload fresh shop data:', error);
+          // Fallback to setting user only
+          setState(prev => ({ 
+            ...prev, 
+            currentUser: updatedUser,
+            users: prev.users.some(u => u.id === user!.id) 
+              ? prev.users.map(u => u.id === user!.id ? updatedUser : u)
+              : [...prev.users, updatedUser]
+          }));
+        }
+      } else {
+        // Offline or no valid shopId - just set user
+        setState(prev => ({ 
+          ...prev, 
+          currentUser: updatedUser,
+          users: prev.users.some(u => u.id === user!.id) 
+            ? prev.users.map(u => u.id === user!.id ? updatedUser : u)
+            : [...prev.users, updatedUser]
+        }));
+      }
       
       // Update last login in Supabase
       if (isOnline() && user.shopId && isValidUUID(user.shopId)) {
@@ -777,6 +848,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logout = () => {
     logActivity('LOGOUT', 'User logged out');
+    // Clear current user but keep shop data for potential re-login
+    // Data will be filtered by shopId on next login
     setState(prev => ({ ...prev, currentUser: null }));
   };
 
@@ -1286,7 +1359,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const getDebtHistory = (customerId: string) => {
-      return state.debtTransactions.filter(t => t.customerId === customerId);
+      const currentShopId = state.settings?.shopId;
+      if (!currentShopId) return [];
+      // CRITICAL: Filter by shopId first to ensure data isolation
+      return state.debtTransactions.filter(t => 
+        t.shopId === currentShopId && t.customerId === customerId
+      );
   };
 
   // Gift Cards
@@ -1329,7 +1407,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const getGiftCard = (code: string) => {
-      return (state.giftCards || []).find(gc => gc.code === code && gc.status === 'active');
+      const currentShopId = state.settings?.shopId;
+      if (!currentShopId) return undefined;
+      // CRITICAL: Filter by shopId first to ensure data isolation
+      return (state.giftCards || []).find(gc => 
+        gc.shopId === currentShopId && gc.code === code && gc.status === 'active'
+      );
   };
 
   // Category Management

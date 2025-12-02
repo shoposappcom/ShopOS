@@ -58,8 +58,17 @@ export const Inventory: React.FC = () => {
 
   const canEdit = hasPermission('manage_stock');
   
+  if (!settings) return null;
+  const currentShopId = settings.shopId;
+  
+  // CRITICAL: Filter by shopId first to ensure data isolation
+  const shopProducts = products.filter(p => p.shopId === currentShopId);
+  const shopCategories = categories.filter(c => c.shopId === currentShopId);
+  const shopSuppliers = suppliers.filter(s => s.shopId === currentShopId);
+  const shopStockMovements = stockMovements.filter(sm => sm.shopId === currentShopId);
+  
   // Filter products: Exclude archived items
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = shopProducts.filter(p => {
     if (p.isArchived) return false;
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.barcode.includes(searchTerm);
     const matchesCategory = filterCategory === 'all' || p.category === filterCategory;
@@ -68,7 +77,7 @@ export const Inventory: React.FC = () => {
 
   const handleOpenAdd = () => {
     setEditingProduct(null);
-    setFormData({ unitsPerCarton: 1, category: categories[0]?.name || 'General' });
+    setFormData({ unitsPerCarton: 1, category: shopCategories[0]?.name || 'General' });
     setImagePreview('');
     setUploadedImageFile(null);
     setShowModal(true);
@@ -229,7 +238,7 @@ export const Inventory: React.FC = () => {
   };
 
   const getProductHistory = (productId: string) => {
-      return stockMovements.filter(m => m.productId === productId).sort((a, b) => new Date(b.createdAt || b.timestamp || 0).getTime() - new Date(a.createdAt || a.timestamp || 0).getTime());
+      return shopStockMovements.filter(m => m.productId === productId).sort((a, b) => new Date(b.createdAt || b.timestamp || 0).getTime() - new Date(a.createdAt || a.timestamp || 0).getTime());
   };
 
   const handlePrintHistory = () => {
@@ -348,7 +357,7 @@ export const Inventory: React.FC = () => {
                 onChange={(e) => setFilterCategory(e.target.value)}
               >
                   <option value="all">{t('allCategories')}</option>
-                  {categories.filter(c => !c.isArchived).map(cat => (
+                  {shopCategories.filter(c => !c.isArchived).map(cat => (
                       <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
               </select>
@@ -694,7 +703,7 @@ export const Inventory: React.FC = () => {
                                  value={formData.category}
                                  onChange={e => setFormData({...formData, category: e.target.value})}
                                >
-                                  {categories.filter(c => !c.isArchived).map(cat => (
+                                  {shopCategories.filter(c => !c.isArchived).map(cat => (
                                       <option key={cat.id} value={cat.name}>{cat.name}</option>
                                   ))}
                                </select>

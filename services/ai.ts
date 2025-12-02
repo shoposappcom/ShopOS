@@ -61,9 +61,14 @@ export const generateAIResponse = async (
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
   // --- DATA PREPARATION HELPER FUNCTIONS ---
+  // CRITICAL: Filter all data by shopId first to ensure data isolation
+  const shopSales = state.sales.filter(s => s.shopId === shopId);
+  const shopProducts = state.products.filter(p => p.shopId === shopId);
+  const shopCustomers = state.customers.filter(c => c.shopId === shopId);
+  const shopExpenses = state.expenses.filter(e => e.shopId === shopId);
 
   const getSalesInDateRange = (startDate: Date, endDate: Date) => {
-    return state.sales.filter(s => {
+    return shopSales.filter(s => {
       const d = new Date(s.date);
       return d >= startDate && d <= endDate;
     });
@@ -84,8 +89,8 @@ export const generateAIResponse = async (
   thirtyDaysAgo.setDate(now.getDate() - 30);
   const salesLast30Days = getSalesInDateRange(thirtyDaysAgo, now);
   
-  // Expenses (This Month)
-  const expensesThisMonth = state.expenses.filter(e => {
+  // Expenses (This Month) - already filtered by shopId
+  const expensesThisMonth = shopExpenses.filter(e => {
       const d = new Date(e.date);
       return d >= thirtyDaysAgo && d <= now;
   });
@@ -126,8 +131,8 @@ export const generateAIResponse = async (
     });
   });
 
-  // 3. Detailed Inventory Context
-  const inventoryContext = state.products.map(p => {
+  // 3. Detailed Inventory Context - already filtered by shopId
+  const inventoryContext = shopProducts.map(p => {
     const sold7d = productSalesMap7d[p.id] || 0;
     const sold30d = productSalesMap30d[p.id] || 0;
     
@@ -172,7 +177,7 @@ export const generateAIResponse = async (
   // Derived Lists for Context
   const lowStockList = inventoryContext
     .filter(p => p.status.low_stock)
-    .map(p => `${p.name} (Has: ${p.stock.total_units}, Min: ${state.products.find(x=>x.id===p.id)?.minStockLevel})`);
+    .map(p => `${p.name} (Has: ${p.stock.total_units}, Min: ${shopProducts.find(x=>x.id===p.id)?.minStockLevel})`);
   
   const expiringSoonList = inventoryContext
     .filter(p => p.status.days_to_expiry !== null && p.status.days_to_expiry <= 60)
@@ -191,8 +196,8 @@ export const generateAIResponse = async (
 
   const totalInventoryValue = inventoryContext.reduce((acc, p) => acc + p.financials.inventory_value, 0);
 
-  // 4. Debtors
-  const debtorsList = state.customers
+  // 4. Debtors - already filtered by shopId
+  const debtorsList = shopCustomers
     .filter(c => c.totalDebt > 0)
     .map(c => ({ name: c.name, debt: c.totalDebt, phone: c.phone }));
 

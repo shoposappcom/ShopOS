@@ -18,16 +18,22 @@ export const Transactions: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  if (!currentUser) return null;
+  if (!currentUser || !settings) return null;
+
+  const currentShopId = settings.shopId;
+  
+  // CRITICAL: Filter by shopId first to ensure data isolation
+  const shopSales = sales.filter(s => s.shopId === currentShopId);
+  const shopCustomers = customers.filter(c => c.shopId === currentShopId);
 
   // Filter Sales Logic
-  const filteredSales = sales.filter(s => {
+  const filteredSales = shopSales.filter(s => {
       // 1. Role Check: Cashier sees own, Admin sees all
       if (currentUser.role === 'cashier' && s.cashierId !== currentUser.id) return false;
 
       // 2. Search (Receipt ID or Customer Name if credit)
       const matchesSearch = s.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            (s.customerId && customers.find(c => c.id === s.customerId)?.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                            (s.customerId && shopCustomers.find(c => c.id === s.customerId)?.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
       // 3. Method Filter
       const matchesMethod = methodFilter === 'all' || s.paymentMethod === methodFilter;

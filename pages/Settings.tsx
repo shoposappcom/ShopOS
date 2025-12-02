@@ -44,10 +44,20 @@ export const Settings: React.FC = () => {
   const isSuperAdmin = currentUser?.role === 'superadmin';
   const isAdmin = currentUser?.role === 'admin' || isSuperAdmin;
 
-  // Filter archived data
-  const filteredCategories = categories.filter(c => !c.isArchived);
-  const filteredSuppliers = suppliers.filter(s => !s.isArchived);
-  const filteredExpenses = expenses.filter(e => !e.isArchived);
+  if (!settings) return null;
+  const currentShopId = settings.shopId;
+
+  // CRITICAL: Filter all data by shopId first to ensure data isolation
+  const shopUsers = users.filter(u => u.shopId === currentShopId);
+  const shopCategories = categories.filter(c => c.shopId === currentShopId);
+  const shopSuppliers = suppliers.filter(s => s.shopId === currentShopId);
+  const shopExpenses = expenses.filter(e => e.shopId === currentShopId);
+  const shopActivityLogs = activityLogs.filter(log => log.shopId === currentShopId);
+
+  // Filter archived data (after shopId filtering)
+  const filteredCategories = shopCategories.filter(c => !c.isArchived);
+  const filteredSuppliers = shopSuppliers.filter(s => !s.isArchived);
+  const filteredExpenses = shopExpenses.filter(e => !e.isArchived);
 
   const handleSaveUser = () => {
     if (!editingUser?.username || !editingUser?.fullName || !editingUser?.role) return;
@@ -148,8 +158,8 @@ export const Settings: React.FC = () => {
   
   const inputClass = "w-full bg-white border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm text-gray-800 placeholder-gray-400";
 
-  // LOGS LOGIC
-  const filteredLogs = activityLogs.filter(log => {
+  // LOGS LOGIC (already filtered by shopId above)
+  const filteredLogs = shopActivityLogs.filter(log => {
       const matchesSearch = log.details.toLowerCase().includes(logSearch.toLowerCase()) || 
                             log.action.toLowerCase().includes(logSearch.toLowerCase());
       const matchesUser = logUserFilter === 'all' || log.userId === logUserFilter;
@@ -157,12 +167,12 @@ export const Settings: React.FC = () => {
       return matchesSearch && matchesUser && matchesAction;
   });
 
-  const uniqueLogUsers = Array.from(new Set(activityLogs.map(l => l.userId))).map(id => {
-      const user = users.find(u => u.id === id);
+  const uniqueLogUsers = Array.from(new Set(shopActivityLogs.map(l => l.userId))).map(id => {
+      const user = shopUsers.find(u => u.id === id);
       return user ? { id: user.id, name: user.fullName } : { id, name: 'Unknown' };
   });
 
-  const uniqueLogActions: string[] = Array.from(new Set(activityLogs.map(l => l.action)));
+  const uniqueLogActions: string[] = Array.from(new Set(shopActivityLogs.map(l => l.action)));
 
   // Pagination Logic
   useEffect(() => {
@@ -317,7 +327,7 @@ export const Settings: React.FC = () => {
               </div>
               
               <div className="grid gap-3">
-                {users.map(user => (
+                {shopUsers.map(user => (
                   <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center font-bold">

@@ -66,7 +66,13 @@ export const GiftCards: React.FC = () => {
       );
   }
 
-  const filteredCards = (giftCards || []).filter(c => 
+  if (!settings) return null;
+  const currentShopId = settings.shopId;
+
+  // CRITICAL: Filter giftCards by shopId first to ensure data isolation
+  const shopGiftCards = (giftCards || []).filter(c => c.shopId === currentShopId);
+  
+  const filteredCards = shopGiftCards.filter(c => 
      c.code.toLowerCase().includes(searchTerm.toLowerCase())
   ).reverse();
 

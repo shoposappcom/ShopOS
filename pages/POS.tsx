@@ -71,8 +71,16 @@ export const POS: React.FC = () => {
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  if (!settings) return null;
+  const currentShopId = settings.shopId;
+  
+  // CRITICAL: Filter by shopId first to ensure data isolation
+  const shopProducts = products.filter(p => p.shopId === currentShopId);
+  const shopCustomers = customers.filter(c => c.shopId === currentShopId);
+  const shopCategories = categories.filter(c => c.shopId === currentShopId);
+  
   // --- SMART SEARCH LOGIC ---
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = shopProducts.filter(p => {
     const term = searchTerm.toLowerCase().trim();
     const matchesSearch = !term || (
         p.name.toLowerCase().includes(term) || 
@@ -174,7 +182,7 @@ export const POS: React.FC = () => {
   // --- SCANNER LOGIC ---
   const handleScan = (decodedText: string) => {
     // 1. Find product
-    const product = products.find(p => p.barcode === decodedText);
+    const product = shopProducts.find(p => p.barcode === decodedText);
     
     if (product) {
        // Play beep sound (optional)
@@ -444,7 +452,7 @@ export const POS: React.FC = () => {
           ${lastSale.isCredit ? `
             <div class="row">
                <span>Customer</span>
-               <span>${customers.find(c => c.id === lastSale.customerId)?.name || 'N/A'}</span>
+               <span>${shopCustomers.find(c => c.id === lastSale.customerId)?.name || 'N/A'}</span>
             </div>
             ${lastSale.dueDate ? `
               <div class="row">
@@ -622,7 +630,7 @@ export const POS: React.FC = () => {
                 >
                     All
                 </button>
-                {categories.map(cat => (
+                {shopCategories.map(cat => (
                     <button
                         key={cat.id}
                         onClick={() => setActiveCategory(cat.name)}
@@ -945,7 +953,7 @@ export const POS: React.FC = () => {
                          onChange={(e) => setSelectedCustomer(e.target.value)}
                        >
                          <option value="">Select Customer</option>
-                         {customers.map(c => (
+                         {shopCustomers.map(c => (
                            <option key={c.id} value={c.id}>{c.name}</option>
                          ))}
                        </select>

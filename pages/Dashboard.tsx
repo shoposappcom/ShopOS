@@ -8,15 +8,22 @@ import { Button } from '../components/ui/Button';
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'year';
 
 export const Dashboard: React.FC = () => {
-  const { sales, products, customers, t, currentUser, expenses } = useStore();
+  const { sales, products, customers, t, currentUser, expenses, settings } = useStore();
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportType, setExportType] = useState<'sales' | 'inventory' | 'debtors'>('sales');
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
 
-  if (!currentUser) return null;
+  if (!currentUser || !settings) return null;
 
   const role = currentUser.role;
+  const currentShopId = settings.shopId;
+
+  // CRITICAL: Filter all data by shopId to ensure data isolation
+  const shopSales = sales.filter(s => s.shopId === currentShopId);
+  const shopProducts = products.filter(p => p.shopId === currentShopId);
+  const shopCustomers = customers.filter(c => c.shopId === currentShopId);
+  const shopExpenses = expenses.filter(e => e.shopId === currentShopId);
 
   // Filter data based on role
   const isCashier = role === 'cashier';
@@ -49,10 +56,10 @@ export const Dashboard: React.FC = () => {
 
   const { start: filterStart, end: filterEnd } = getDateRange(dateFilter);
 
-  // 1. SALES DATA (Filtered)
+  // 1. SALES DATA (Filtered by shopId first, then by role)
   const allSales = isCashier 
-    ? sales.filter(s => s.cashierId === currentUser.id)
-    : sales;
+    ? shopSales.filter(s => s.cashierId === currentUser.id)
+    : shopSales;
 
   const filteredSales = useMemo(() => {
       return allSales.filter(s => {
@@ -64,21 +71,20 @@ export const Dashboard: React.FC = () => {
   const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
   const grossProfit = filteredSales.reduce((acc, s) => acc + (s.profit || 0), 0);
   
-  // 2. EXPENSES DATA (Filtered)
+  // 2. EXPENSES DATA (Filtered by shopId and date)
   const filteredExpenses = useMemo(() => {
-      return expenses.filter(e => {
+      return shopExpenses.filter(e => {
           if (e.isArchived) return false;
           const d = new Date(e.date);
           return d >= filterStart && d <= filterEnd;
       });
-  }, [expenses, filterStart, filterEnd]);
+  }, [shopExpenses, filterStart, filterEnd]);
   
   const totalExpenses = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
   const netProfit = grossProfit - totalExpenses;
 
-  // 3. INVENTORY DATA (Static Snapshot - Exclude Archived)
-  // Filter active products first
-  const activeProducts = products.filter(p => !p.isArchived);
+  // 3. INVENTORY DATA (Filtered by shopId - Static Snapshot - Exclude Archived)
+  const activeProducts = shopProducts.filter(p => !p.isArchived);
 
   const lowStockCount = activeProducts.filter(p => p.totalUnits < p.minStockLevel).length;
   
@@ -87,8 +93,8 @@ export const Dashboard: React.FC = () => {
     .sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime())
     .slice(0, 5);
 
-  // 4. DEBT DATA (Static Snapshot - Exclude Archived)
-  const totalDebt = customers.filter(c => !c.isArchived).reduce((acc, c) => acc + c.totalDebt, 0);
+  // 4. DEBT DATA (Filtered by shopId - Static Snapshot - Exclude Archived)
+  const totalDebt = shopCustomers.filter(c => !c.isArchived).reduce((acc, c) => acc + c.totalDebt, 0);
 
   // --- CHART DATA GENERATION ---
   const chartData = useMemo(() => {
@@ -172,7 +178,7 @@ export const Dashboard: React.FC = () => {
       }));
       filename = 'sales_report.csv';
     } else if (type === 'inventory') {
-      data = activeProducts.map(p => ({
+      data = shopProducts.filter(p => !p.isArchived).map(p => ({
         Name: p.name,
         Category: p.category,
         Barcode: p.barcode,
@@ -182,7 +188,7 @@ export const Dashboard: React.FC = () => {
       }));
       filename = 'inventory_report.csv';
     } else if (type === 'debtors') {
-      data = customers.filter(c => !c.isArchived).map(c => ({
+      data = shopCustomers.filter(c => !c.isArchived).map(c => ({
         Name: c.name,
         Phone: c.phone,
         Debt: c.totalDebt,
@@ -508,7 +514,7 @@ export const Dashboard: React.FC = () => {
                 {t('lowStock')}
              </h3>
              <div className="space-y-3">
-                {activeProducts.filter(p => p.totalUnits < p.minStockLevel).slice(0, isStockClerk ? 10 : 5).map(p => (
+                {activeProducts.filter(p => p.shopId === currentShopId && p.totalUnits < p.minStockLevel).slice(0, isStockClerk ? 10 : 5).map(p => (
                   <div key={p.id} className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-100">
                      <div className="flex-1 min-w-0 mr-2">
                        <p className="font-medium text-gray-800 truncate text-sm">{p.name}</p>
@@ -518,7 +524,7 @@ export const Dashboard: React.FC = () => {
                      </span>
                   </div>
                 ))}
-                {activeProducts.filter(p => p.totalUnits < p.minStockLevel).length === 0 && (
+                {activeProducts.filter(p => p.shopId === currentShopId && p.totalUnits < p.minStockLevel).length === 0 && (
                   <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                     <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">Stock levels are healthy</p>
@@ -575,7 +581,7 @@ export const Dashboard: React.FC = () => {
                  Top Debtors
                </h3>
                <div className="space-y-3">
-                  {customers.filter(c => !c.isArchived && c.totalDebt > 0).sort((a,b) => b.totalDebt - a.totalDebt).slice(0, 5).map(c => (
+                  {shopCustomers.filter(c => !c.isArchived && c.totalDebt > 0).sort((a,b) => b.totalDebt - a.totalDebt).slice(0, 5).map(c => (
                     <div key={c.id} className="flex justify-between items-center p-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors rounded-lg">
                        <div>
                          <p className="font-medium text-gray-800 text-sm">{c.name}</p>
@@ -584,7 +590,7 @@ export const Dashboard: React.FC = () => {
                        <span className="font-bold text-red-600 text-sm">₦{c.totalDebt.toLocaleString()}</span>
                     </div>
                   ))}
-                  {customers.filter(c => !c.isArchived && c.totalDebt > 0).length === 0 && (
+                  {shopCustomers.filter(c => !c.isArchived && c.totalDebt > 0).length === 0 && (
                     <div className="text-center py-4 text-gray-400 text-sm">No active debtors</div>
                   )}
                </div>

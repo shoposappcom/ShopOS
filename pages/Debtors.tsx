@@ -50,8 +50,11 @@ export const Debtors: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // CRITICAL: Filter by shopId first, then by other criteria
+  const shopCustomers = customers.filter(c => c.shopId === settings?.shopId);
+  
   // Filter out archived customers
-  const filteredDebtors = customers.filter(c => 
+  const filteredDebtors = shopCustomers.filter(c => 
     !c.isArchived &&
     (c.totalDebt > 0 || searchTerm) && 
     (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
