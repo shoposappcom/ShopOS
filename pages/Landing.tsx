@@ -182,43 +182,19 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted, onLogin }) => {
           <div className="relative w-full max-w-6xl mx-auto px-4">
              <div className="relative rounded-3xl bg-slate-900/5 p-2 ring-1 ring-inset ring-slate-900/10 lg:-m-4 lg:rounded-4xl lg:p-4 backdrop-blur-sm">
                 <div className="rounded-2xl bg-white shadow-2xl overflow-hidden border border-slate-200 aspect-[16/10] sm:aspect-[16/9] relative group">
-                    {/* Abstract UI Representation */}
-                    <div className="flex h-full bg-slate-50">
-                        {/* Sidebar */}
-                        <div className="w-20 lg:w-64 bg-white border-r border-slate-100 hidden sm:flex flex-col p-4 gap-6">
-                            <div className="w-10 h-10 lg:w-32 lg:h-8 bg-slate-100 rounded-lg animate-pulse"></div>
-                            <div className="space-y-3">
-                                {[1,2,3,4,5,6].map(i => <div key={i} className="w-full h-10 bg-slate-50 rounded-lg"></div>)}
-                            </div>
-                        </div>
-                        {/* Main Content */}
-                        <div className="flex-1 p-6 lg:p-8 overflow-hidden">
-                            <div className="flex justify-between items-center mb-8">
-                                <div className="w-48 h-10 bg-white rounded-xl shadow-sm border border-slate-100"></div>
-                                <div className="flex gap-3">
-                                    <div className="w-10 h-10 bg-white rounded-full shadow-sm border border-slate-100"></div>
-                                    <div className="w-10 h-10 bg-emerald-500 rounded-full shadow-lg shadow-emerald-200"></div>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 space-y-6">
-                                    <div className="h-48 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-end gap-2">
-                                        {[40, 70, 45, 90, 60, 80, 50].map((h, i) => (
-                                            <div key={i} className="flex-1 bg-emerald-100 rounded-t-lg relative group/bar">
-                                                <div style={{height: `${h}%`}} className="absolute bottom-0 w-full bg-emerald-500 rounded-t-lg transition-all duration-1000 group-hover/bar:bg-emerald-600"></div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[1,2].map(i => <div key={i} className="h-32 bg-white rounded-2xl border border-slate-100 shadow-sm"></div>)}
-                                    </div>
-                                </div>
-                                <div className="hidden lg:block space-y-4">
-                                    {[1,2,3].map(i => <div key={i} className="h-24 bg-white rounded-2xl border border-slate-100 shadow-sm p-4"></div>)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    {/* Desktop Dashboard Screenshot */}
+                    <img 
+                        src="https://i.ibb.co/Wp4LBpk6/Screenshot-2025-12-02-014752.png" 
+                        alt="ShopOS Dashboard - Desktop View"
+                        className="hidden lg:block w-full h-full object-cover"
+                    />
+                    
+                    {/* Mobile Dashboard Screenshot */}
+                    <img 
+                        src="https://i.ibb.co/j9g76HDR/Screenshot-2025-12-02-014836.png" 
+                        alt="ShopOS Dashboard - Mobile View"
+                        className="lg:hidden w-full h-full object-cover"
+                    />
                     
                     {/* Floating Elements */}
                     <div className="absolute bottom-8 right-8 lg:bottom-12 lg:right-12 bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-white/20 flex items-center gap-4 animate-bounce duration-[3000ms] z-10 max-w-xs">
