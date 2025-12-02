@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense } from '../types';
-import { User as UserIcon, Shield, Globe, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
 import { generateUUID } from '../services/supabase/client';
+import { LanguageSelector } from '../components/LanguageSelector';
 
 export const Settings: React.FC = () => {
   const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense } = useStore();
@@ -149,13 +150,6 @@ export const Settings: React.FC = () => {
      setEditingExp(null);
   };
 
-  const cycleLang = () => {
-    const langs: Language[] = ['en', 'ha', 'yo', 'ig', 'ar', 'fr'];
-    const idx = langs.indexOf(language);
-    const next = langs[(idx + 1) % langs.length];
-    setLanguage(next);
-  };
-  
   const inputClass = "w-full bg-white border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm text-gray-800 placeholder-gray-400";
 
   // LOGS LOGIC (already filtered by shopId above)
@@ -187,13 +181,11 @@ export const Settings: React.FC = () => {
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-2xl font-bold text-gray-800">{t('settings')}</h2>
         <div className="flex gap-2">
-            <button 
-                onClick={cycleLang}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg font-bold border bg-white text-gray-700 border-gray-200 hover:bg-gray-50 transition-all uppercase text-sm shadow-sm"
-            >
-                <Globe className="w-4 h-4 text-gray-500" />
-                {language}
-            </button>
+            <LanguageSelector 
+                currentLanguage={language}
+                onLanguageChange={setLanguage}
+                variant="default"
+            />
         </div>
       </div>
 

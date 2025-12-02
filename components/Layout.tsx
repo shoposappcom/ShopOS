@@ -2,7 +2,8 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
 import { NAV_ITEMS } from '../constants';
-import { LogOut, Globe, Menu, UserCircle, ChevronDown, Wifi, WifiOff, RefreshCw, Clock, CheckCircle2, AlertCircle, TestTube } from 'lucide-react';
+import { LogOut, Menu, UserCircle, ChevronDown, Wifi, WifiOff, RefreshCw, Clock, CheckCircle2, AlertCircle, TestTube } from 'lucide-react';
+import { LanguageSelector } from './LanguageSelector';
 import { Language } from '../types';
 import { getDaysRemaining } from '../services/subscription';
 import { isTestAccount } from '../services/testData';
@@ -16,12 +17,6 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
   const { currentUser, logout, t, language, setLanguage, hasPermission, isOnline, isSyncing, pendingSyncCount, settings, getSubscription, checkSubscription } = useStore();
 
-  const handleLangChange = () => {
-    const langs: Language[] = ['en', 'ha', 'yo', 'ig', 'ar', 'fr'];
-    const idx = langs.indexOf(language);
-    const next = langs[(idx + 1) % langs.length];
-    setLanguage(next);
-  };
 
   if (!currentUser) return <>{children}</>;
 
@@ -106,13 +101,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
             return null;
           })()}
           
-          <button 
-            onClick={handleLangChange}
-            className="flex items-center gap-2 text-xs font-medium bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full transition-colors border border-gray-100"
-          >
-            <Globe className="w-3.5 h-3.5 text-gray-600" />
-            <span className="uppercase text-gray-700">{language}</span>
-          </button>
+          <LanguageSelector 
+            currentLanguage={language}
+            onLanguageChange={setLanguage}
+            variant="compact"
+          />
           
           <div className="hidden sm:flex items-center gap-3 pl-4 border-l border-gray-100">
             <div className="text-right">

@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Language } from '../types';
 import { COUNTRIES_STATES } from '../constants';
-import { Globe, Lock, User as UserIcon, ArrowRight, Loader, Mail, Store, MapPin, CheckCircle, Zap } from 'lucide-react';
+import { Lock, User as UserIcon, ArrowRight, Loader, Mail, Store, MapPin, CheckCircle, Zap } from 'lucide-react';
+import { LanguageSelector } from '../components/LanguageSelector';
 
 export const Login: React.FC = () => {
   const { login, registerShop, t, language, setLanguage } = useStore();
@@ -106,11 +107,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const cycleLang = () => {
-    const langs: Language[] = ['en', 'ha', 'yo', 'ig', 'ar', 'fr'];
-    const next = langs[(langs.indexOf(language) + 1) % langs.length];
-    setLanguage(next);
-  };
 
   const handleQuickLogin = async (role: string) => {
       // Test Account Credentials
@@ -145,13 +141,11 @@ export const Login: React.FC = () => {
                     className="h-10 w-auto object-contain"
                 />
             </div>
-            <button 
-                onClick={cycleLang} 
-                className="flex items-center gap-2 text-[10px] font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full transition-colors border border-gray-100 uppercase"
-            >
-                <Globe className="w-3 h-3" />
-                <span>{language}</span>
-            </button>
+            <LanguageSelector 
+                currentLanguage={language}
+                onLanguageChange={setLanguage}
+                variant="minimal"
+            />
         </div>
 
         <div className="p-8 pt-6">
