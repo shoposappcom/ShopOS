@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { RefreshCw, Smartphone, Zap, ZapOff, Scan, AlertTriangle, Camera, X } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { playSuccessSound } from '../utils/sound';
+import { playSuccessSound, playErrorSound } from '../utils/sound';
+import { analyzeImageWithGemini } from '../services/scannerService';
 
 interface BarcodeScannerProps {
   onScan: (decodedText: string) => void;
@@ -199,49 +200,31 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose 
         
         const imageData = canvas.toDataURL('image/jpeg', 0.8);
         
-        // Try to detect barcode from captured image
-        if ('BarcodeDetector' in window) {
-          try {
-            const barcodeDetector = new window.BarcodeDetector({
-              formats: [
-                'qr_code', 
-                'aztec', 
-                'code_128', 
-                'code_39', 
-                'code_93', 
-                'codabar', 
-                'data_matrix', 
-                'ean_13', 
-                'ean_8', 
-                'itf', 
-                'pdf417', 
-                'upc_a', 
-                'upc_e'
-              ]
-            });
-            
-            const barcodes = await barcodeDetector.detect(canvas);
-            if (barcodes.length > 0) {
-              const rawValue = barcodes[0].rawValue;
-              if (rawValue && rawValue !== lastScannedData) {
-                setLastScannedData(rawValue);
-                playSuccessSound();
-                onScan(rawValue);
-                setTimeout(() => setLastScannedData(null), 3000);
-              }
+        // Manual capture uses Gemini AI as fallback (for difficult codes or when native fails)
+        try {
+          const result = await analyzeImageWithGemini(imageData);
+          
+          if (result.found && result.data) {
+            if (result.data !== lastScannedData) {
+              setLastScannedData(result.data);
+              playSuccessSound();
+              onScan(result.data);
+              setTimeout(() => setLastScannedData(null), 3000);
             } else {
-              // No barcode found in image
+              playErrorSound();
               alert(t('barcodeNotFound') || 'Barcode not found. Please try again.');
             }
-          } catch (e) {
-            console.error("Manual detection failed", e);
-            alert(t('scanError') || 'Scan failed. Please try again.');
+          } else {
+            playErrorSound();
+            alert(result.summary || t('barcodeNotFound') || 'Barcode not found. Please try again.');
           }
-        } else {
-          alert(t('barcodeDetectionNotSupported') || 'Barcode detection not supported in this browser.');
+        } catch (error) {
+          console.error("Gemini scanning failed:", error);
+          playErrorSound();
+          alert(t('scanError') || 'Scan failed. Please try again.');
+        } finally {
+          setIsProcessing(false);
         }
-        
-        setIsProcessing(false);
       }
     }
   };
