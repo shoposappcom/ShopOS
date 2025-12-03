@@ -234,18 +234,31 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose 
       <div className="w-full max-w-md relative bg-black h-full flex flex-col">
         
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
-          <h3 className="text-white font-bold text-lg flex items-center gap-2">
-            <Camera className="w-5 h-5 text-green-400" />
-            {t('scanBarcode') || 'Scan Barcode'}
-          </h3>
-          <button 
-            onClick={onClose} 
-            className="p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors"
-            aria-label="Close scanner"
-          >
-            <X className="w-6 h-6" />
-          </button>
+        <div className="absolute top-0 left-0 right-0 p-4 z-10 bg-gradient-to-b from-black/80 to-transparent">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h3 className="text-white font-bold text-lg flex items-center gap-2 mb-2">
+                <Camera className="w-5 h-5 text-green-400" />
+                {t('scanBarcode') || 'Scan Barcode'}
+              </h3>
+              {/* Warning if native scan not supported - positioned below header text */}
+              {!supportsNativeScan && !permissionError && (
+                <div className="flex items-center gap-2">
+                  <div className="bg-amber-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-amber-500/50 flex items-center gap-2 shadow-lg">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="text-[10px] text-amber-200 font-semibold">Auto-scan unavailable. Use button.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={onClose} 
+              className="p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors"
+              aria-label="Close scanner"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Permission Error Overlay */}
@@ -368,15 +381,6 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose 
                 </button>
         </div>
 
-        {/* Warning if native scan not supported - positioned above controls bar */}
-        {!supportsNativeScan && !permissionError && (
-           <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
-              <div className="bg-amber-900/90 backdrop-blur-md px-4 py-2 rounded-full border border-amber-500/50 flex items-center gap-2 shadow-lg">
-                  <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs text-amber-200 font-semibold">Auto-scan unavailable. Use button.</span>
-              </div>
-           </div>
-        )}
 
         {/* Hidden Canvas for Capture */}
         <canvas ref={canvasRef} className="hidden" />

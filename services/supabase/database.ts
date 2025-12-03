@@ -681,12 +681,12 @@ export const authenticateUser = async (usernameOrEmail: string, password: string
   shopSettings: ShopSettings | null;
 }> => {
   // Search for user by email or username (case-insensitive)
-  const searchTerm = usernameOrEmail.toLowerCase();
+  const searchTerm = usernameOrEmail.toLowerCase().trim();
   
   const { data: users, error } = await supabase
     .from('users')
     .select('*')
-    .or(`username.ilike.${searchTerm},email.ilike.${searchTerm}`);
+    .or(`username.ilike."${searchTerm}",email.ilike."${searchTerm}"`);
   
   if (error) {
     console.error('Supabase authenticateUser error:', error);

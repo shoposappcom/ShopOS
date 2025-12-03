@@ -385,9 +385,11 @@ export const Login: React.FC = () => {
                                 className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium transition-all text-gray-900"
                                 placeholder="Enter username or email"
                                 value={usernameOrEmail}
-                                onChange={e => setUsernameOrEmail(e.target.value.trimStart())}
-                                onBlur={e => setUsernameOrEmail(e.target.value.trim())}
+                                onChange={e => setUsernameOrEmail(e.target.value.trimStart().toLowerCase())}
+                                onBlur={e => setUsernameOrEmail(e.target.value.trim().toLowerCase())}
                                 autoFocus
+                                autoCapitalize="none"
+                                autoCorrect="off"
                             />
                         </div>
                     </div>
