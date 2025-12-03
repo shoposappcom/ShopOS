@@ -851,6 +851,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Clear current user but keep shop data for potential re-login
     // Data will be filtered by shopId on next login
     setState(prev => ({ ...prev, currentUser: null }));
+    // Note: We keep remembered username in localStorage so user doesn't have to re-enter it
+    // Only password needs to be re-entered for security
   };
 
   const addProduct = async (product: Product) => {

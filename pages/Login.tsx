@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Language } from '../types';
 import { COUNTRIES_STATES } from '../constants';
 import { Lock, User as UserIcon, ArrowRight, Loader, Mail, Store, MapPin, CheckCircle, Zap } from 'lucide-react';
 import { LanguageSelector } from '../components/LanguageSelector';
+
+const REMEMBERED_USERNAME_KEY = 'shopos_remembered_username';
 
 export const Login: React.FC = () => {
   const { login, registerShop, t, language, setLanguage } = useStore();
@@ -13,6 +15,7 @@ export const Login: React.FC = () => {
   // Login State
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   
   // Registration State
   const [fullName, setFullName] = useState('');
@@ -32,6 +35,15 @@ export const Login: React.FC = () => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Load remembered username on mount
+  useEffect(() => {
+    const rememberedUsername = localStorage.getItem(REMEMBERED_USERNAME_KEY);
+    if (rememberedUsername) {
+      setUsernameOrEmail(rememberedUsername);
+      setRememberMe(true);
+    }
+  }, []);
   
   // Password strength checker
   const checkPasswordStrength = (password: string) => {
@@ -55,7 +67,15 @@ export const Login: React.FC = () => {
     
     try {
         const success = await login(usernameOrEmail, password);
-        if (!success) {
+        if (success) {
+            // Save username if remember me is checked
+            if (rememberMe) {
+                localStorage.setItem(REMEMBERED_USERNAME_KEY, usernameOrEmail);
+            } else {
+                // Clear remembered username if unchecked
+                localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+            }
+        } else {
             setError('Invalid credentials or account inactive.');
         }
     } catch (err) {
@@ -359,6 +379,33 @@ export const Login: React.FC = () => {
                                 onChange={e => setPassword(e.target.value)}
                             />
                         </div>
+                    </div>
+
+                    {/* Remember Me Checkbox */}
+                    <div className="flex items-center gap-2">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={rememberMe}
+                                onChange={e => {
+                                    setRememberMe(e.target.checked);
+                                    // Clear remembered username if unchecked
+                                    if (!e.target.checked) {
+                                        localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+                                    }
+                                }}
+                            />
+                            <div className="w-5 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded border border-gray-300 peer peer-checked:after:content-['✓'] peer-checked:after:text-white after:absolute after:flex after:items-center after:justify-center after:text-xs after:font-bold peer-checked:bg-green-600 peer-checked:border-green-600 transition-all"></div>
+                        </label>
+                        <span className="text-sm text-gray-600 font-medium cursor-pointer" onClick={() => {
+                            setRememberMe(!rememberMe);
+                            if (rememberMe) {
+                                localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+                            }
+                        }}>
+                            {t('rememberMe') || 'Remember me'}
+                        </span>
                     </div>
 
                     {error && <p className="text-xs text-red-500 text-center font-bold bg-red-50 py-2 rounded-lg animate-in fade-in slide-in-from-top-1">{error}</p>}
