@@ -493,6 +493,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const login = async (usernameOrEmail: string, pin: string): Promise<boolean> => {
+    // Trim whitespace to fix browser autofill issues
+    const trimmedUsername = usernameOrEmail.trim();
+    const trimmedPin = pin.trim();
+    
     let user: User | null = null;
     let shopSettings: ShopSettings | null = null;
     let subscription: Subscription | null = null;
@@ -501,7 +505,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Check if this is a test account login
     const { TEST_ACCOUNTS, getTestShopId, isTestAccount } = await import('../services/testData');
     const testAccount = TEST_ACCOUNTS.find(acc => 
-      acc.username.toLowerCase() === usernameOrEmail.toLowerCase() && acc.password === pin
+      acc.username.toLowerCase() === trimmedUsername.toLowerCase() && acc.password === trimmedPin
     );
     
     // If test account, ensure test shop exists
@@ -535,7 +539,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (isOnline()) {
       try {
         console.log('🔐 Authenticating via Supabase...');
-        const authResult = await db.authenticateUser(usernameOrEmail, pin);
+        const authResult = await db.authenticateUser(trimmedUsername, trimmedPin);
         
         if (authResult.user) {
           user = authResult.user;
@@ -585,9 +589,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.log('🔐 Trying local authentication...');
       user = state.users.find(u => {
         const matchesCredential = 
-          u.username.toLowerCase() === usernameOrEmail.toLowerCase() ||
-          (u.email && u.email.toLowerCase() === usernameOrEmail.toLowerCase());
-        return matchesCredential && u.password === pin;
+          u.username.toLowerCase() === trimmedUsername.toLowerCase() ||
+          (u.email && u.email.toLowerCase() === trimmedUsername.toLowerCase());
+        return matchesCredential && u.password === trimmedPin;
       }) || null;
       
       // If local user found, filter all data by their shopId to prevent data mixing

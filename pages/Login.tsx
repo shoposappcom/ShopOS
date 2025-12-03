@@ -77,14 +77,22 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError('');
     
+    // Trim whitespace from username/email and password to fix browser autofill issues
+    const trimmedUsername = usernameOrEmail.trim();
+    const trimmedPassword = password.trim();
+    
+    // Update state with trimmed values
+    setUsernameOrEmail(trimmedUsername);
+    setPassword(trimmedPassword);
+    
     try {
-        const success = await login(usernameOrEmail, password);
+        const success = await login(trimmedUsername, trimmedPassword);
         if (success) {
-            // Save username and password if remember me is checked
+            // Save username and password if remember me is checked (save trimmed values)
             if (rememberMe) {
-                localStorage.setItem(REMEMBERED_USERNAME_KEY, usernameOrEmail);
+                localStorage.setItem(REMEMBERED_USERNAME_KEY, trimmedUsername);
                 // Store password with simple base64 encoding (obfuscation, not encryption)
-                localStorage.setItem(REMEMBERED_PASSWORD_KEY, btoa(password));
+                localStorage.setItem(REMEMBERED_PASSWORD_KEY, btoa(trimmedPassword));
             } else {
                 // Clear remembered username and password if unchecked
                 localStorage.removeItem(REMEMBERED_USERNAME_KEY);
@@ -377,7 +385,8 @@ export const Login: React.FC = () => {
                                 className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium transition-all text-gray-900"
                                 placeholder="Enter username or email"
                                 value={usernameOrEmail}
-                                onChange={e => setUsernameOrEmail(e.target.value)}
+                                onChange={e => setUsernameOrEmail(e.target.value.trimStart())}
+                                onBlur={e => setUsernameOrEmail(e.target.value.trim())}
                                 autoFocus
                             />
                         </div>
@@ -391,7 +400,8 @@ export const Login: React.FC = () => {
                                 className="w-full pl-9 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium transition-all text-gray-900"
                                 placeholder="Enter password"
                                 value={password}
-                                onChange={e => setPassword(e.target.value)}
+                                onChange={e => setPassword(e.target.value.trimStart())}
+                                onBlur={e => setPassword(e.target.value.trim())}
                             />
                         </div>
                     </div>
