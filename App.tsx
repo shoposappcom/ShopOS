@@ -23,7 +23,7 @@ import { isAdminAuthenticated } from './services/adminAuth';
 import { hasAdminCredentials } from './services/adminStorage';
 
 const AppContent: React.FC = () => {
-  const { currentUser, isAccountLocked, checkSubscription, getSubscription } = useStore();
+  const { currentUser, isAccountLocked, checkSubscription, getSubscription, settings } = useStore();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showLogin, setShowLogin] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<string>('');
@@ -202,6 +202,8 @@ const AppContent: React.FC = () => {
   }
 
   // If Logged In and subscription is active:
+  const showAIChatByDefault = settings?.showAIChatByDefault !== false; // Default to true if not set
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard />;
@@ -216,12 +218,18 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Determine if AI Chat should be shown
+  // Always show in settings page, otherwise:
+  // - Hide on POS page (scanner page) regardless of setting
+  // - Respect showAIChatByDefault setting on other pages
+  const shouldShowAIChat = activeTab === 'settings' || (showAIChatByDefault && activeTab !== 'pos');
+
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="w-full h-full">
         {renderContent()}
       </div>
-      <AIChat />
+      {shouldShowAIChat && <AIChat />}
     </Layout>
   );
 };

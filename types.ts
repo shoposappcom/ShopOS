@@ -212,6 +212,7 @@ export interface ShopSettings {
   taxRate: number;
   autoBackup: 'off' | 'daily' | 'weekly' | 'monthly';
   lastBackupDate?: string; // ISO date
+  showAIChatByDefault?: boolean; // Whether to show AI chat icon by default (default: true)
   createdAt: string; // ISO date
   updatedAt?: string; // ISO date
 }

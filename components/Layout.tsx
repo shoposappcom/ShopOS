@@ -121,8 +121,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
             </div>
           </div>
 
-          <button onClick={logout} className="sm:ml-2 text-gray-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-all">
+          <button 
+            onClick={() => {
+              if (window.confirm(t('confirmLogout') || 'Are you sure you want to logout?')) {
+                logout();
+              }
+            }} 
+            className="sm:ml-2 flex items-center gap-2 text-gray-400 hover:text-red-500 px-3 py-2 rounded-lg hover:bg-red-50 transition-all group relative"
+            title={t('logout') || 'Logout'}
+          >
             <LogOut className="w-5 h-5" />
+            <span className="hidden sm:block text-sm font-medium">{t('logout') || 'Logout'}</span>
+            {/* Tooltip for mobile */}
+            <span className="sm:hidden absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+              {t('logout') || 'Logout'}
+            </span>
           </button>
         </div>
       </header>

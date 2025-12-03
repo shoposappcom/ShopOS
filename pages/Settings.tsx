@@ -302,6 +302,29 @@ export const Settings: React.FC = () => {
                         onChange={e => setBizForm({...bizForm, receiptFooter: e.target.value})}
                       />
                    </div>
+                   
+                   {/* AI Chat Visibility Toggle */}
+                   <div className="pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                         <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                               <Sparkles className="w-5 h-5 text-purple-600" />
+                               <label className="block text-sm font-semibold text-gray-700">{t('showAIChatByDefault') || 'Show AI Chat by Default'}</label>
+                            </div>
+                            <p className="text-xs text-gray-500">Control whether the AI chat icon appears on most pages. It will always be available in Settings.</p>
+                         </div>
+                         <label className="relative inline-flex items-center cursor-pointer ml-4">
+                            <input
+                               type="checkbox"
+                               className="sr-only peer"
+                               checked={bizForm.showAIChatByDefault !== undefined ? bizForm.showAIChatByDefault : (settings.showAIChatByDefault !== false)}
+                               onChange={e => setBizForm({...bizForm, showAIChatByDefault: e.target.checked})}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                         </label>
+                      </div>
+                   </div>
+                   
                    <div className="pt-4">
                       <Button onClick={handleSaveBusiness}>{t('save')}</Button>
                    </div>
