@@ -7,6 +7,7 @@ import { Lock, User as UserIcon, ArrowRight, Loader, Mail, Store, MapPin, CheckC
 import { LanguageSelector } from '../components/LanguageSelector';
 
 const REMEMBERED_USERNAME_KEY = 'shopos_remembered_username';
+const REMEMBERED_PASSWORD_KEY = 'shopos_remembered_password';
 
 export const Login: React.FC = () => {
   const { login, registerShop, t, language, setLanguage } = useStore();
@@ -36,12 +37,23 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Load remembered username on mount
+  // Load remembered username and password on mount
   useEffect(() => {
     const rememberedUsername = localStorage.getItem(REMEMBERED_USERNAME_KEY);
+    const rememberedPassword = localStorage.getItem(REMEMBERED_PASSWORD_KEY);
     if (rememberedUsername) {
       setUsernameOrEmail(rememberedUsername);
       setRememberMe(true);
+      // Load password if it exists
+      if (rememberedPassword) {
+        // Simple base64 decode (not secure, but obfuscates it slightly)
+        try {
+          setPassword(atob(rememberedPassword));
+        } catch {
+          // If decode fails, just use empty password
+          setPassword('');
+        }
+      }
     }
   }, []);
   
@@ -68,12 +80,15 @@ export const Login: React.FC = () => {
     try {
         const success = await login(usernameOrEmail, password);
         if (success) {
-            // Save username if remember me is checked
+            // Save username and password if remember me is checked
             if (rememberMe) {
                 localStorage.setItem(REMEMBERED_USERNAME_KEY, usernameOrEmail);
+                // Store password with simple base64 encoding (obfuscation, not encryption)
+                localStorage.setItem(REMEMBERED_PASSWORD_KEY, btoa(password));
             } else {
-                // Clear remembered username if unchecked
+                // Clear remembered username and password if unchecked
                 localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+                localStorage.removeItem(REMEMBERED_PASSWORD_KEY);
             }
         } else {
             setError('Invalid credentials or account inactive.');
@@ -390,18 +405,28 @@ export const Login: React.FC = () => {
                                 checked={rememberMe}
                                 onChange={e => {
                                     setRememberMe(e.target.checked);
-                                    // Clear remembered username if unchecked
+                                    // Clear remembered username and password if unchecked
                                     if (!e.target.checked) {
                                         localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+                                        localStorage.removeItem(REMEMBERED_PASSWORD_KEY);
+                                        setPassword(''); // Also clear password field
                                     }
                                 }}
                             />
-                            <div className="w-5 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded border border-gray-300 peer peer-checked:after:content-['✓'] peer-checked:after:text-white after:absolute after:flex after:items-center after:justify-center after:text-xs after:font-bold peer-checked:bg-green-600 peer-checked:border-green-600 transition-all"></div>
+                            <div className="relative w-5 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded border border-gray-300 peer-checked:bg-green-600 peer-checked:border-green-600 transition-all">
+                                {rememberMe && (
+                                    <svg className="absolute inset-0 w-full h-full text-white flex items-center justify-center" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                )}
+                            </div>
                         </label>
                         <span className="text-sm text-gray-600 font-medium cursor-pointer" onClick={() => {
                             setRememberMe(!rememberMe);
                             if (rememberMe) {
                                 localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+                                localStorage.removeItem(REMEMBERED_PASSWORD_KEY);
+                                setPassword(''); // Also clear password field
                             }
                         }}>
                             {t('rememberMe') || 'Remember me'}
