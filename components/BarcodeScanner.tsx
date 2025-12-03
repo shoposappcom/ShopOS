@@ -368,15 +368,15 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onClose 
                 </button>
         </div>
 
-        {/* Warning if native scan not supported */}
+        {/* Warning if native scan not supported - positioned above controls bar */}
         {!supportsNativeScan && !permissionError && (
-           <div className="absolute top-4 left-0 right-0 flex justify-center pointer-events-none">
-              <div className="bg-amber-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-amber-500/30 flex items-center gap-2 shadow-lg">
+           <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
+              <div className="bg-amber-900/90 backdrop-blur-md px-4 py-2 rounded-full border border-amber-500/50 flex items-center gap-2 shadow-lg">
                   <AlertTriangle className="w-4 h-4 text-amber-500" />
                   <span className="text-xs text-amber-200 font-semibold">Auto-scan unavailable. Use button.</span>
               </div>
-            </div>
-          )}
+           </div>
+        )}
 
         {/* Hidden Canvas for Capture */}
         <canvas ref={canvasRef} className="hidden" />
