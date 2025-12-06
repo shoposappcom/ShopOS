@@ -63,7 +63,11 @@ export const Inventory: React.FC = () => {
   
   // CRITICAL: Filter by shopId first to ensure data isolation
   const shopProducts = products.filter(p => p.shopId === currentShopId);
-  const shopCategories = categories.filter(c => c.shopId === currentShopId);
+  // Include both shop-specific categories and default categories (SYSTEM_SHOP_ID)
+  const SYSTEM_SHOP_ID = 'e02e8276-32da-4d4e-a455-0f1f232ffffe';
+  const shopCategories = categories.filter(c => 
+    c.shopId === currentShopId || c.shopId === SYSTEM_SHOP_ID
+  );
   const shopSuppliers = suppliers.filter(s => s.shopId === currentShopId);
   const shopStockMovements = stockMovements.filter(sm => sm.shopId === currentShopId);
   
