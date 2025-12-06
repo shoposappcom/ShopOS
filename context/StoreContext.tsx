@@ -1312,6 +1312,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
      const shopId = state.settings?.shopId || 'unknown';
      const hasValidShopId = isValidUUID(shopId);
      const canSync = canSyncToSupabase();
+     const customer = state.customers.find(c => c.id === customerId);
      
      setState(prev => {
         const customers = prev.customers.map(c => {
@@ -1324,6 +1325,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
            return c;
         });
 
+        const customer = customers.find(c => c.id === customerId);
         const now = new Date().toISOString();
         const transaction: DebtTransaction = {
             id: generateUUID(),
@@ -1336,13 +1338,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             note: 'Debt Repayment'
         };
 
+        // Create a Sale record for the debt payment so it appears in Transactions and Dashboard
+        const paymentSale: Sale = {
+          id: generateUUID(),
+          shopId: shopId,
+          date: now,
+          cashierId: prev.currentUser?.id || '',
+          cashierName: prev.currentUser?.fullName || 'System',
+          items: [], // Empty items array for debt payments
+          total: amount,
+          profit: 0, // No profit on debt payments
+          paymentMethod: 'cash', // Default to cash for debt payments
+          customerId: customerId,
+          isCredit: false,
+          createdAt: now
+        };
+
         // Sync to Supabase or queue for later
         if (hasValidShopId) {
-          const customer = customers.find(c => c.id === customerId);
           if (canSync) {
             db.createDebtTransaction(transaction).catch(err => {
               console.error('Failed to sync debt payment:', err);
               queueOperation('CREATE_DEBT_TRANSACTION', transaction, transaction.id);
+            });
+            // Create sale record in Supabase
+            db.createSale(paymentSale).catch(err => {
+              console.error('Failed to sync debt payment sale:', err);
+              queueOperation('CREATE_SALE', paymentSale, paymentSale.id);
             });
             if (customer) {
               db.updateCustomer(customerId, { totalDebt: customer.totalDebt })
@@ -1353,15 +1375,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           } else {
             queueOperation('CREATE_DEBT_TRANSACTION', transaction, transaction.id);
+            queueOperation('CREATE_SALE', paymentSale, paymentSale.id);
             if (customer) {
               queueOperation('UPDATE_CUSTOMER', { totalDebt: customer.totalDebt }, customerId);
             }
           }
         }
 
-        return { ...prev, customers, debtTransactions: [...prev.debtTransactions, transaction] };
+        return { 
+          ...prev, 
+          customers, 
+          debtTransactions: [...prev.debtTransactions, transaction],
+          sales: [paymentSale, ...prev.sales] // Add sale record for debt payment
+        };
      });
-     logActivity('DEBT_PAYMENT', `Recorded payment of ₦${amount} for customer ${customerId}`);
+     logActivity('DEBT_PAYMENT', `Recorded payment of ₦${amount.toLocaleString()} for customer ${customer?.name || customerId}`);
   };
 
   const getDebtHistory = (customerId: string) => {

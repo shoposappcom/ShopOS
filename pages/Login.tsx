@@ -441,7 +441,7 @@ export const Login: React.FC = () => {
                                 setPassword(''); // Also clear password field
                             }
                         }}>
-                            {t('rememberMe') || 'Remember me'}
+                            {t('rememberMe') || 'Remember Me'}
                         </span>
                     </div>
 

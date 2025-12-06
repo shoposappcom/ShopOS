@@ -507,7 +507,7 @@ export const Settings: React.FC = () => {
                     <div key={log.id} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm text-sm">
                       <div className="flex justify-between items-start">
                         <span className="font-bold text-gray-700">{log.action}</span>
-                        <span className="text-xs text-gray-400">{new Date(log.timestamp).toLocaleString()}</span>
+                        <span className="text-xs text-gray-400">{new Date(log.createdAt).toLocaleString()}</span>
                       </div>
                       <p className="text-gray-600 mt-1">{log.details}</p>
                       <p className="text-xs text-gray-400 mt-1">By: <span className="font-medium text-gray-600">{log.userName}</span></p>
