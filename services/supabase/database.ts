@@ -1,4 +1,5 @@
 import { supabase, generateUUID, isOnline } from './client';
+import { isValidUUID } from '../../utils/uuid';
 import {
   DbShopSettings, DbUser, DbCategory, DbSupplier, DbProduct, DbCustomer,
   DbSale, DbDebtTransaction, DbStockMovement, DbExpense, DbGiftCard,
@@ -1932,67 +1933,133 @@ export const loadAllShopData = async (shopId: string) => {
 // SHOP DATA RESET FUNCTIONS (Admin Only)
 // ============================================================================
 
+// Validate shopId to prevent accidental deletion of all data
+const validateShopId = (shopId: string): void => {
+  if (!shopId || shopId.trim() === '') {
+    throw new Error('Shop ID is required');
+  }
+  if (!isValidUUID(shopId)) {
+    throw new Error('Invalid shop ID format');
+  }
+};
+
 export const resetShopSales = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting sales for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('sales')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopSales');
+  if (error) {
+    console.error('Error resetting sales:', error);
+    throw new Error(`Failed to reset sales: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} sales records for shop ${shopId}`);
 };
 
 export const resetShopCustomers = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting customers for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('customers')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopCustomers');
+  if (error) {
+    console.error('Error resetting customers:', error);
+    throw new Error(`Failed to reset customers: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} customer records for shop ${shopId}`);
 };
 
 export const resetShopDebtTransactions = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting debt transactions for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('debt_transactions')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopDebtTransactions');
+  if (error) {
+    console.error('Error resetting debt transactions:', error);
+    throw new Error(`Failed to reset debt transactions: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} debt transaction records for shop ${shopId}`);
 };
 
 export const resetShopExpenses = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting expenses for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('expenses')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopExpenses');
+  if (error) {
+    console.error('Error resetting expenses:', error);
+    throw new Error(`Failed to reset expenses: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} expense records for shop ${shopId}`);
 };
 
 export const resetShopGiftCards = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting gift cards for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('gift_cards')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopGiftCards');
+  if (error) {
+    console.error('Error resetting gift cards:', error);
+    throw new Error(`Failed to reset gift cards: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} gift card records for shop ${shopId}`);
 };
 
 export const resetShopActivityLogs = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting activity logs for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('activity_logs')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopActivityLogs');
+  if (error) {
+    console.error('Error resetting activity logs:', error);
+    throw new Error(`Failed to reset activity logs: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} activity log records for shop ${shopId}`);
 };
 
 export const resetShopStockMovements = async (shopId: string): Promise<void> => {
-  const { error } = await supabase
+  validateShopId(shopId);
+  console.log(`🗑️ Resetting stock movements for shop: ${shopId}`);
+  
+  const { data, error } = await supabase
     .from('stock_movements')
     .delete()
-    .eq('shop_id', shopId);
+    .eq('shop_id', shopId)
+    .select();
   
-  if (error) handleError(error, 'resetShopStockMovements');
+  if (error) {
+    console.error('Error resetting stock movements:', error);
+    throw new Error(`Failed to reset stock movements: ${error.message}`);
+  }
+  console.log(`✅ Deleted ${data?.length || 0} stock movement records for shop ${shopId}`);
 };
 
 export interface ResetShopDataOptions {
@@ -2007,30 +2074,77 @@ export interface ResetShopDataOptions {
 }
 
 export const resetShopData = async (shopId: string, options: ResetShopDataOptions): Promise<void> => {
+  // Validate shopId first
+  validateShopId(shopId);
+  
+  // Ensure at least one option is selected
+  const hasAnyOption = Object.values(options).some(v => v === true);
+  if (!hasAnyOption) {
+    throw new Error('At least one data type must be selected for reset');
+  }
+  
+  console.log(`🔄 Starting shop data reset for shop: ${shopId}`, options);
+  
   const resetPromises: Promise<void>[] = [];
+  const errors: string[] = [];
   
   if (options.sales) {
-    resetPromises.push(resetShopSales(shopId));
+    resetPromises.push(
+      resetShopSales(shopId).catch(err => {
+        errors.push(`Sales: ${err.message}`);
+      })
+    );
   }
   if (options.customers) {
-    resetPromises.push(resetShopCustomers(shopId));
+    resetPromises.push(
+      resetShopCustomers(shopId).catch(err => {
+        errors.push(`Customers: ${err.message}`);
+      })
+    );
   }
   if (options.debtTransactions) {
-    resetPromises.push(resetShopDebtTransactions(shopId));
+    resetPromises.push(
+      resetShopDebtTransactions(shopId).catch(err => {
+        errors.push(`Debt Transactions: ${err.message}`);
+      })
+    );
   }
   if (options.expenses) {
-    resetPromises.push(resetShopExpenses(shopId));
+    resetPromises.push(
+      resetShopExpenses(shopId).catch(err => {
+        errors.push(`Expenses: ${err.message}`);
+      })
+    );
   }
   if (options.giftCards) {
-    resetPromises.push(resetShopGiftCards(shopId));
+    resetPromises.push(
+      resetShopGiftCards(shopId).catch(err => {
+        errors.push(`Gift Cards: ${err.message}`);
+      })
+    );
   }
   if (options.activityLogs) {
-    resetPromises.push(resetShopActivityLogs(shopId));
+    resetPromises.push(
+      resetShopActivityLogs(shopId).catch(err => {
+        errors.push(`Activity Logs: ${err.message}`);
+      })
+    );
   }
   if (options.stockMovements) {
-    resetPromises.push(resetShopStockMovements(shopId));
+    resetPromises.push(
+      resetShopStockMovements(shopId).catch(err => {
+        errors.push(`Stock Movements: ${err.message}`);
+      })
+    );
   }
   
   await Promise.all(resetPromises);
+  
+  if (errors.length > 0) {
+    console.error('❌ Some reset operations failed:', errors);
+    throw new Error(`Some operations failed: ${errors.join('; ')}`);
+  }
+  
+  console.log(`✅ Shop data reset completed successfully for shop: ${shopId}`);
 };
 

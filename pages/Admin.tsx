@@ -2186,8 +2186,11 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                           setResetSuccess(false);
 
                           try {
+                            console.log('Starting reset for shop:', selectedShopId, 'Options:', resetOptions);
                             await db.resetShopData(selectedShopId, resetOptions);
+                            console.log('Reset completed successfully');
                             setResetSuccess(true);
+                            setResetError('');
                             setResetOptions({
                               sales: false,
                               customers: false,
@@ -2197,8 +2200,14 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                               activityLogs: false,
                               stockMovements: false
                             });
+                            // Refresh shop list after reset
+                            setTimeout(() => {
+                              setShops(getAllShops());
+                            }, 1000);
                           } catch (error: any) {
-                            setResetError(error.message || 'Failed to reset shop data');
+                            console.error('Reset error:', error);
+                            setResetError(error.message || 'Failed to reset shop data. Please check the console for details.');
+                            setResetSuccess(false);
                           } finally {
                             setResetting(false);
                           }
