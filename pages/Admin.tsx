@@ -148,6 +148,10 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState('');
   
+  // Delete Shop state
+  const [deletingShop, setDeletingShop] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  
   const ITEMS_PER_PAGE = 10;
 
   // Helper function to calculate days remaining for a shop
@@ -567,6 +571,30 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
     }
   };
 
+  const handleDeleteShop = async (shopId: string) => {
+    setDeletingShop(shopId);
+    setDeleteError('');
+    
+    try {
+      console.log('Starting shop deletion for shop:', shopId);
+      await db.deleteShop(shopId);
+      console.log('Shop deletion completed successfully');
+      
+      // Refresh shop list after deletion
+      setTimeout(async () => {
+        const adminData = await loadAdminData();
+        setShops(adminData.shops);
+      }, 1000);
+      
+      setDeletingShop(null);
+    } catch (error: any) {
+      console.error('Delete shop error:', error);
+      const errorMsg = error.message || 'Failed to delete shop. Please check the console for details.';
+      setDeleteError(errorMsg);
+      setDeletingShop(null);
+    }
+  };
+
   // Show loading state while initial data loads
   if (loadingData && shops.length === 0 && payments.length === 0) {
     return (
@@ -872,16 +900,51 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                             ₦{shop.totalRevenue.toLocaleString()}
                           </td>
                           <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm">
-                            <button className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
-                              <Eye className="w-4 h-4" />
-                              <span>View</span>
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button className="text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                                <Eye className="w-4 h-4" />
+                                <span>View</span>
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (window.confirm(`⚠️ WARNING: This will permanently delete the shop "${shop.shopName}" and ALL its data (products, sales, customers, users, etc.). This action cannot be undone!\n\nAre you absolutely sure you want to delete this shop?`)) {
+                                    const confirmed = window.prompt(`Type "DELETE" to confirm deletion of shop "${shop.shopName}":`);
+                                    if (confirmed === 'DELETE') {
+                                      handleDeleteShop(shop.shopId);
+                                    }
+                                  }
+                                }}
+                                disabled={deletingShop === shop.shopId}
+                                className="text-red-600 hover:text-red-700 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1"
+                                title="Delete Shop"
+                              >
+                                {deletingShop === shop.shopId ? (
+                                  <>
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                    <span className="hidden sm:inline">Deleting...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Delete</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
+                
+                {deleteError && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600">
+                    <AlertCircle className="w-5 h-5" />
+                    <span className="text-sm">{deleteError}</span>
+                  </div>
+                )}
+                
                 {filteredShops.length === 0 && (
                   <div className="text-center py-12 text-gray-500">No shops found</div>
                 )}
