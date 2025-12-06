@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Language } from '../types';
 import { COUNTRIES_STATES } from '../constants';
-import { Lock, User as UserIcon, ArrowRight, Loader, Mail, Store, MapPin, CheckCircle, Zap } from 'lucide-react';
+import { Lock, User as UserIcon, ArrowRight, Loader, Mail, Store, MapPin, CheckCircle, Zap, Phone } from 'lucide-react';
 import { LanguageSelector } from '../components/LanguageSelector';
 
 const REMEMBERED_USERNAME_KEY = 'shopos_remembered_username';
@@ -21,6 +21,7 @@ export const Login: React.FC = () => {
   // Registration State
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [shopName, setShopName] = useState('');
   const [country, setCountry] = useState('Nigeria');
   const [state, setState] = useState('Abuja (FCT)');
@@ -110,8 +111,24 @@ export const Login: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !email || !shopName || !regPassword || !confirmPassword) {
+    
+    // Validate all required fields
+    if (!fullName.trim() || !email.trim() || !phone.trim() || !shopName.trim() || !country.trim() || !state.trim() || !regPassword || !confirmPassword) {
         setError("Please fill all required fields");
+        return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+        setError("Please enter a valid email address");
+        return;
+    }
+    
+    // Validate phone format (basic validation - at least 10 digits)
+    const phoneRegex = /^[\d\s\-\+\(\)]{10,}$/;
+    if (!phoneRegex.test(phone.trim())) {
+        setError("Please enter a valid phone number (at least 10 digits)");
         return;
     }
     
@@ -132,11 +149,12 @@ export const Login: React.FC = () => {
 
     try {
         const success = await registerShop({
-            fullName,
-            email,
-            shopName,
-            country: country || 'Nigeria',
-            state: state || 'Abuja (FCT)',
+            fullName: fullName.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+            shopName: shopName.trim(),
+            country: country.trim(),
+            state: state.trim(),
             password: regPassword
         });
 
@@ -232,6 +250,20 @@ export const Login: React.FC = () => {
                     </div>
                 </div>
                 <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase ml-1">Phone Number</label>
+                    <div className="relative">
+                        <Phone className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                        <input 
+                            type="tel"
+                            className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium text-gray-900"
+                            placeholder="+234 800 000 0000"
+                            value={phone}
+                            onChange={e => setPhone(e.target.value)}
+                            required
+                        />
+                    </div>
+                </div>
+                <div>
                     <label className="text-xs font-bold text-gray-500 uppercase ml-1">{t('shopName')}</label>
                     <div className="relative">
                         <Store className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
@@ -257,6 +289,7 @@ export const Login: React.FC = () => {
                                     setCountry(newCountry);
                                     setState(COUNTRIES_STATES[newCountry]?.[0] || '');
                                 }}
+                                required
                             >
                                 {Object.keys(COUNTRIES_STATES).map(c => (
                                     <option key={c} value={c}>{c}</option>
@@ -270,6 +303,7 @@ export const Login: React.FC = () => {
                             className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none text-sm font-medium text-gray-900 appearance-none"
                             value={state}
                             onChange={e => setState(e.target.value)}
+                            required
                         >
                             {availableStates.map(s => (
                                 <option key={s} value={s}>{s}</option>

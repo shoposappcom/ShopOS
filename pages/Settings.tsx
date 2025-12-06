@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
-import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense } from '../types';
+import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense, ExpenseCategory } from '../types';
 import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight, Package, RotateCcw } from 'lucide-react';
 import { generateUUID } from '../services/supabase/client';
 import { LanguageSelector } from '../components/LanguageSelector';
 
 export const Settings: React.FC = () => {
-  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense, products, restoreProduct } = useStore();
+  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense, products, restoreProduct, expenseCategories, addExpenseCategory } = useStore();
   const [activeTab, setActiveTab] = useState<'users' | 'profile' | 'logs' | 'business' | 'categories' | 'suppliers' | 'expenses' | 'products'>('profile');
   
   // User Management State
@@ -26,6 +26,8 @@ export const Settings: React.FC = () => {
   // Expense Management State
   const [showExpModal, setShowExpModal] = useState(false);
   const [editingExp, setEditingExp] = useState<Partial<Expense> | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showAddCategory, setShowAddCategory] = useState(false);
 
   // Business Settings State
   const [bizForm, setBizForm] = useState<Partial<ShopSettings>>({});
@@ -153,6 +155,36 @@ export const Settings: React.FC = () => {
      });
      setShowExpModal(false);
      setEditingExp(null);
+     setShowAddCategory(false);
+     setNewCategoryName('');
+  };
+
+  // Default expense categories
+  const defaultExpenseCategories = ['General', 'Rent', 'Utilities', 'Salary', 'Restock'];
+  
+  // Get shop-specific expense categories
+  const shopExpenseCategories = expenseCategories.filter(ec => ec.shopId === currentShopId && !ec.isArchived);
+  
+  // Combine default and custom categories, remove duplicates
+  const allExpenseCategories = Array.from(new Set([
+    ...defaultExpenseCategories, 
+    ...shopExpenseCategories.map(ec => ec.name)
+  ])).sort();
+
+  const handleAddExpenseCategory = () => {
+    const trimmed = newCategoryName.trim();
+    if (trimmed && !allExpenseCategories.includes(trimmed)) {
+      const newCategory: ExpenseCategory = {
+        id: generateUUID(),
+        shopId: currentShopId,
+        name: trimmed,
+        createdAt: new Date().toISOString()
+      };
+      addExpenseCategory(newCategory);
+      setEditingExp({...editingExp, category: trimmed});
+      setNewCategoryName('');
+      setShowAddCategory(false);
+    }
   };
 
   const inputClass = "w-full bg-white border border-gray-300 p-2.5 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm text-gray-800 placeholder-gray-400";
@@ -733,13 +765,69 @@ export const Settings: React.FC = () => {
                      <span className="absolute left-3 top-2.5 text-gray-400 font-bold">₦</span>
                      <input type="number" className={`${inputClass} pl-8`} placeholder="0.00" value={editingExp?.amount || ''} onChange={e => setEditingExp({...editingExp, amount: e.target.value})} />
                   </div>
-                  <select className={inputClass} value={editingExp?.category || 'General'} onChange={e => setEditingExp({...editingExp, category: e.target.value})}>
-                     <option value="General">General</option>
-                     <option value="Rent">Rent</option>
-                     <option value="Utilities">Utilities</option>
-                     <option value="Salary">Salary</option>
-                     <option value="Restock">Restock</option>
-                  </select>
+                  <div className="space-y-2">
+                     <div className="flex gap-2">
+                        <select 
+                           className={`${inputClass} flex-1`} 
+                           value={editingExp?.category || 'General'} 
+                           onChange={e => {
+                              setEditingExp({...editingExp, category: e.target.value});
+                              setShowAddCategory(false);
+                           }}
+                        >
+                           {allExpenseCategories.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                           ))}
+                        </select>
+                        <button
+                           type="button"
+                           onClick={() => {
+                              setShowAddCategory(!showAddCategory);
+                              setNewCategoryName('');
+                           }}
+                           className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg text-gray-700 font-medium transition-all flex items-center gap-1.5"
+                           title="Add Custom Category"
+                        >
+                           <Plus className="w-4 h-4" />
+                        </button>
+                     </div>
+                     {showAddCategory && (
+                        <div className="flex gap-2 animate-in fade-in slide-in-from-top-2">
+                           <input
+                              type="text"
+                              className={inputClass}
+                              placeholder="Enter category name"
+                              value={newCategoryName}
+                              onChange={e => setNewCategoryName(e.target.value)}
+                              onKeyPress={e => {
+                                 if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddExpenseCategory();
+                                 }
+                              }}
+                              autoFocus
+                           />
+                           <button
+                              type="button"
+                              onClick={handleAddExpenseCategory}
+                              disabled={!newCategoryName.trim() || allExpenseCategories.includes(newCategoryName.trim())}
+                              className="px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all"
+                           >
+                              Add
+                           </button>
+                           <button
+                              type="button"
+                              onClick={() => {
+                                 setShowAddCategory(false);
+                                 setNewCategoryName('');
+                              }}
+                              className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all"
+                           >
+                              Cancel
+                           </button>
+                        </div>
+                     )}
+                  </div>
                   <input type="date" className={inputClass} value={editingExp?.date ? new Date(editingExp.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]} onChange={e => setEditingExp({...editingExp, date: new Date(e.target.value).toISOString()})} />
                </div>
                <div className="flex gap-3 mt-6">

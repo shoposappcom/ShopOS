@@ -43,6 +43,15 @@ export interface DbCategory {
   updated_at: string | null;
 }
 
+export interface DbExpenseCategory {
+  id: string;
+  shop_id: string;
+  name: string;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export interface DbSupplier {
   id: string;
   shop_id: string;

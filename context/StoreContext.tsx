@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { AppState, User, Product, Sale, Customer, Language, UserRole, PermissionAction, PERMISSIONS, ActivityLog, DebtTransaction, ShopSettings, GiftCard, Category, Supplier, Expense, StockMovement, RegistrationData, Subscription, SubscriptionPlan, ShopSummary } from '../types';
+import { AppState, User, Product, Sale, Customer, Language, UserRole, PermissionAction, PERMISSIONS, ActivityLog, DebtTransaction, ShopSettings, GiftCard, Category, Supplier, Expense, StockMovement, RegistrationData, Subscription, SubscriptionPlan, ShopSummary, ExpenseCategory } from '../types';
 import { loadStateFromLocalStorage, saveStateToLocalStorage } from '../services/storage';
 import { TRANSLATIONS, INITIAL_CATEGORIES } from '../constants';
 import { createTrialSubscription, checkSubscriptionStatus, isSubscriptionActive, extendSubscription, verifySubscriptionIntegrity, getDaysRemaining, getSubscriptionPrice } from '../services/subscription';
@@ -52,6 +52,9 @@ interface StoreContextType extends AppState {
   // Expense Management
   addExpense: (expense: Expense) => void;
   deleteExpense: (id: string) => void;
+  
+  // Expense Category Management
+  addExpenseCategory: (expenseCategory: ExpenseCategory) => void;
 
   t: (key: string) => string;
   hasPermission: (action: PermissionAction | string) => boolean;
@@ -240,6 +243,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           break;
         case 'UPDATE_EXPENSE':
           await db.updateExpense(operation.entityId!, operation.data);
+          break;
+        case 'CREATE_EXPENSE_CATEGORY':
+          await db.createExpenseCategory(operation.data);
+          break;
+        case 'UPDATE_EXPENSE_CATEGORY':
+          await db.updateExpenseCategory(operation.entityId!, operation.data);
           break;
         case 'CREATE_GIFT_CARD':
           await db.createGiftCard(operation.data);
@@ -606,6 +615,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           users: prev.users.filter(u => u.shopId === userShopId),
           products: prev.products.filter(p => p.shopId === userShopId),
           categories: prev.categories.filter(c => c.shopId === userShopId),
+          expenseCategories: prev.expenseCategories.filter(c => c.shopId === userShopId),
           suppliers: prev.suppliers.filter(s => s.shopId === userShopId),
           expenses: prev.expenses.filter(e => e.shopId === userShopId),
           sales: prev.sales.filter(s => s.shopId === userShopId),
@@ -742,7 +752,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         businessName: data.shopName,
         country: data.country,
         state: data.state,
-        phone: '',
+        phone: data.phone || '',
         address: '',
         currency: '₦',
         receiptFooter: 'Thank you for your patronage!',
@@ -1645,6 +1655,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Expense Category Management
+  const addExpenseCategory = async (expenseCategory: ExpenseCategory) => {
+    const categoryWithShop = {
+      ...expenseCategory,
+      shopId: expenseCategory.shopId || state.settings?.shopId || '',
+      createdAt: expenseCategory.createdAt || new Date().toISOString()
+    };
+    
+    setState(prev => ({ ...prev, expenseCategories: [...prev.expenseCategories, categoryWithShop] }));
+    logActivity('ADD_EXPENSE_CATEGORY', `Created expense category: ${expenseCategory.name}`);
+    
+    // Sync to Supabase or queue for later
+    if (categoryWithShop.shopId && isValidUUID(categoryWithShop.shopId)) {
+      if (canSyncToSupabase()) {
+        db.createExpenseCategory(categoryWithShop).catch(err => {
+          console.error('Failed to sync expense category:', err);
+          queueOperation('CREATE_EXPENSE_CATEGORY', categoryWithShop, categoryWithShop.id);
+        });
+      } else {
+        queueOperation('CREATE_EXPENSE_CATEGORY', categoryWithShop, categoryWithShop.id);
+      }
+    }
+  };
+
   // User Management
   const addUser = (user: User): boolean => {
     if (state.users.some(u => u.username === user.username)) return false;
@@ -2181,6 +2215,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       deleteSupplier,
       addExpense,
       deleteExpense,
+      addExpenseCategory,
       t,
       hasPermission,
       addUser,

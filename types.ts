@@ -63,6 +63,15 @@ export interface Category {
   isArchived?: boolean;
 }
 
+export interface ExpenseCategory {
+  id: string;
+  shopId: string; // Foreign Key: shopId → ShopSettings.shopId
+  name: string;
+  createdAt: string; // ISO date
+  updatedAt?: string; // ISO date
+  isArchived?: boolean;
+}
+
 export interface Supplier {
   id: string;
   shopId: string; // Foreign Key: shopId → ShopSettings.shopId
@@ -221,6 +230,7 @@ export interface ShopSettings {
 export interface RegistrationData {
   fullName: string;
   email: string;
+  phone: string;
   shopName: string;
   country: string;
   state: string;
@@ -324,6 +334,7 @@ export interface AppState {
   users: User[];
   products: Product[];
   categories: Category[];
+  expenseCategories: ExpenseCategory[]; // Expense categories
   suppliers: Supplier[]; // New table
   expenses: Expense[];   // New table
   sales: Sale[];

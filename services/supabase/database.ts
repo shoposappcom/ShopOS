@@ -4,13 +4,13 @@ import {
   DbShopSettings, DbUser, DbCategory, DbSupplier, DbProduct, DbCustomer,
   DbSale, DbDebtTransaction, DbStockMovement, DbExpense, DbGiftCard,
   DbActivityLog, DbSubscription, DbPaymentRecord, DbAdminConfig, DbCoupon,
-  DbCouponUsage, DbAIUsageRecord, DbShopSummary
+  DbCouponUsage, DbAIUsageRecord, DbShopSummary, DbExpenseCategory
 } from './types';
 import {
   ShopSettings, User, Category, Supplier, Product, Customer, Sale,
   DebtTransaction, StockMovement, Expense, GiftCard, ActivityLog,
   Subscription, PaymentRecord, AdminConfig, Coupon, CouponUsage,
-  AIUsageRecord, ShopSummary, Language
+  AIUsageRecord, ShopSummary, Language, ExpenseCategory
 } from '../../types';
 
 // ============================================================================
@@ -1883,6 +1883,7 @@ export const loadAllShopData = async (shopId: string) => {
     settings,
     users,
     categories,
+    expenseCategories,
     suppliers,
     products,
     customers,
@@ -1898,6 +1899,7 @@ export const loadAllShopData = async (shopId: string) => {
     getShopSettings(shopId),
     getUsersByShop(shopId),
     getCategoriesByShop(shopId),
+    getExpenseCategoriesByShop(shopId),
     getSuppliersByShop(shopId),
     getProductsByShop(shopId),
     getCustomersByShop(shopId),
@@ -1915,6 +1917,7 @@ export const loadAllShopData = async (shopId: string) => {
     settings,
     users,
     categories,
+    expenseCategories,
     suppliers,
     products,
     customers,
