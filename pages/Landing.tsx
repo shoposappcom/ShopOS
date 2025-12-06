@@ -509,7 +509,6 @@ export const Landing: React.FC<LandingProps> = ({ onGetStarted, onLogin }) => {
                 <p>© 2025 ShopOS Inc. All rights reserved.</p>
                 <div className="flex gap-6">
                     <a href="#" className="hover:text-slate-600">Twitter</a>
-                    <a href="#" className="hover:text-slate-600">LinkedIn</a>
                     <a href="#" className="hover:text-slate-600">Instagram</a>
                 </div>
             </div>
