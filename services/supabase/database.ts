@@ -1947,6 +1947,24 @@ export const resetShopSales = async (shopId: string): Promise<void> => {
   validateShopId(shopId);
   console.log(`🗑️ Resetting sales for shop: ${shopId}`);
   
+  // First check if any sales exist for this shop
+  const { data: existingData, error: checkError } = await supabase
+    .from('sales')
+    .select('id')
+    .eq('shop_id', shopId)
+    .limit(1);
+  
+  if (checkError) {
+    console.error('Error checking sales:', checkError);
+    throw new Error(`Failed to check sales: ${checkError.message}`);
+  }
+  
+  if (!existingData || existingData.length === 0) {
+    console.log(`ℹ️ No sales records found for shop ${shopId}`);
+    return;
+  }
+  
+  // Delete the sales
   const { data, error } = await supabase
     .from('sales')
     .delete()
@@ -1964,6 +1982,24 @@ export const resetShopCustomers = async (shopId: string): Promise<void> => {
   validateShopId(shopId);
   console.log(`🗑️ Resetting customers for shop: ${shopId}`);
   
+  // First check if any customers exist for this shop
+  const { data: existingData, error: checkError } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('shop_id', shopId)
+    .limit(1);
+  
+  if (checkError) {
+    console.error('Error checking customers:', checkError);
+    throw new Error(`Failed to check customers: ${checkError.message}`);
+  }
+  
+  if (!existingData || existingData.length === 0) {
+    console.log(`ℹ️ No customer records found for shop ${shopId}`);
+    return;
+  }
+  
+  // Delete the customers
   const { data, error } = await supabase
     .from('customers')
     .delete()
@@ -1981,6 +2017,24 @@ export const resetShopDebtTransactions = async (shopId: string): Promise<void> =
   validateShopId(shopId);
   console.log(`🗑️ Resetting debt transactions for shop: ${shopId}`);
   
+  // First check if any debt transactions exist for this shop
+  const { data: existingData, error: checkError } = await supabase
+    .from('debt_transactions')
+    .select('id')
+    .eq('shop_id', shopId)
+    .limit(1);
+  
+  if (checkError) {
+    console.error('Error checking debt transactions:', checkError);
+    throw new Error(`Failed to check debt transactions: ${checkError.message}`);
+  }
+  
+  if (!existingData || existingData.length === 0) {
+    console.log(`ℹ️ No debt transaction records found for shop ${shopId}`);
+    return;
+  }
+  
+  // Delete the debt transactions
   const { data, error } = await supabase
     .from('debt_transactions')
     .delete()
@@ -1998,6 +2052,24 @@ export const resetShopExpenses = async (shopId: string): Promise<void> => {
   validateShopId(shopId);
   console.log(`🗑️ Resetting expenses for shop: ${shopId}`);
   
+  // First check if any expenses exist for this shop
+  const { data: existingData, error: checkError } = await supabase
+    .from('expenses')
+    .select('id')
+    .eq('shop_id', shopId)
+    .limit(1);
+  
+  if (checkError) {
+    console.error('Error checking expenses:', checkError);
+    throw new Error(`Failed to check expenses: ${checkError.message}`);
+  }
+  
+  if (!existingData || existingData.length === 0) {
+    console.log(`ℹ️ No expense records found for shop ${shopId}`);
+    return;
+  }
+  
+  // Delete the expenses
   const { data, error } = await supabase
     .from('expenses')
     .delete()
@@ -2015,6 +2087,24 @@ export const resetShopGiftCards = async (shopId: string): Promise<void> => {
   validateShopId(shopId);
   console.log(`🗑️ Resetting gift cards for shop: ${shopId}`);
   
+  // First check if any gift cards exist for this shop
+  const { data: existingData, error: checkError } = await supabase
+    .from('gift_cards')
+    .select('id')
+    .eq('shop_id', shopId)
+    .limit(1);
+  
+  if (checkError) {
+    console.error('Error checking gift cards:', checkError);
+    throw new Error(`Failed to check gift cards: ${checkError.message}`);
+  }
+  
+  if (!existingData || existingData.length === 0) {
+    console.log(`ℹ️ No gift card records found for shop ${shopId}`);
+    return;
+  }
+  
+  // Delete the gift cards
   const { data, error } = await supabase
     .from('gift_cards')
     .delete()
@@ -2032,6 +2122,24 @@ export const resetShopActivityLogs = async (shopId: string): Promise<void> => {
   validateShopId(shopId);
   console.log(`🗑️ Resetting activity logs for shop: ${shopId}`);
   
+  // First check if any activity logs exist for this shop
+  const { data: existingData, error: checkError } = await supabase
+    .from('activity_logs')
+    .select('id')
+    .eq('shop_id', shopId)
+    .limit(1);
+  
+  if (checkError) {
+    console.error('Error checking activity logs:', checkError);
+    throw new Error(`Failed to check activity logs: ${checkError.message}`);
+  }
+  
+  if (!existingData || existingData.length === 0) {
+    console.log(`ℹ️ No activity log records found for shop ${shopId}`);
+    return;
+  }
+  
+  // Delete the activity logs
   const { data, error } = await supabase
     .from('activity_logs')
     .delete()

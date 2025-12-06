@@ -2206,7 +2206,8 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                             }, 1000);
                           } catch (error: any) {
                             console.error('Reset error:', error);
-                            setResetError(error.message || 'Failed to reset shop data. Please check the console for details.');
+                            const errorMsg = error.message || 'Failed to reset shop data. Please check the console for details.';
+                            setResetError(errorMsg);
                             setResetSuccess(false);
                           } finally {
                             setResetting(false);
