@@ -1928,3 +1928,109 @@ export const loadAllShopData = async (shopId: string) => {
   };
 };
 
+// ============================================================================
+// SHOP DATA RESET FUNCTIONS (Admin Only)
+// ============================================================================
+
+export const resetShopSales = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('sales')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopSales');
+};
+
+export const resetShopCustomers = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('customers')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopCustomers');
+};
+
+export const resetShopDebtTransactions = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('debt_transactions')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopDebtTransactions');
+};
+
+export const resetShopExpenses = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopExpenses');
+};
+
+export const resetShopGiftCards = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('gift_cards')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopGiftCards');
+};
+
+export const resetShopActivityLogs = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('activity_logs')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopActivityLogs');
+};
+
+export const resetShopStockMovements = async (shopId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('stock_movements')
+    .delete()
+    .eq('shop_id', shopId);
+  
+  if (error) handleError(error, 'resetShopStockMovements');
+};
+
+export interface ResetShopDataOptions {
+  sales?: boolean;
+  customers?: boolean;
+  debtTransactions?: boolean;
+  expenses?: boolean;
+  giftCards?: boolean;
+  activityLogs?: boolean;
+  stockMovements?: boolean;
+  // Note: products/stocks are NOT reset by default
+}
+
+export const resetShopData = async (shopId: string, options: ResetShopDataOptions): Promise<void> => {
+  const resetPromises: Promise<void>[] = [];
+  
+  if (options.sales) {
+    resetPromises.push(resetShopSales(shopId));
+  }
+  if (options.customers) {
+    resetPromises.push(resetShopCustomers(shopId));
+  }
+  if (options.debtTransactions) {
+    resetPromises.push(resetShopDebtTransactions(shopId));
+  }
+  if (options.expenses) {
+    resetPromises.push(resetShopExpenses(shopId));
+  }
+  if (options.giftCards) {
+    resetPromises.push(resetShopGiftCards(shopId));
+  }
+  if (options.activityLogs) {
+    resetPromises.push(resetShopActivityLogs(shopId));
+  }
+  if (options.stockMovements) {
+    resetPromises.push(resetShopStockMovements(shopId));
+  }
+  
+  await Promise.all(resetPromises);
+};
+

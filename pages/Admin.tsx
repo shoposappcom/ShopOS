@@ -7,6 +7,7 @@ import {
   updateAdminConfig,
   loadAdminData
 } from '../services/adminStorage';
+import * as db from '../services/supabase/database';
 import { getTrialConfig, updateTrialConfig, setTrialDays, disableTrial, enableTrial } from '../services/trialConfig';
 import { getTotalRevenue } from '../services/paymentTracking';
 import { getGeminiApiKeySync, updateGeminiApiKey, getPaystackPublicKey, getPaystackSecretKey, getPaystackMode, updatePaystackKeys } from '../services/adminStorage';
@@ -66,7 +67,7 @@ interface AdminProps {
   onLogout: () => void;
 }
 
-type Tab = 'overview' | 'shops' | 'payments' | 'statistics' | 'coupons' | 'ai' | 'settings';
+type Tab = 'overview' | 'shops' | 'payments' | 'statistics' | 'coupons' | 'ai' | 'settings' | 'reset';
 
 export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -131,6 +132,21 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
   const [aiUsagePage, setAiUsagePage] = useState(1);
   const [viewingUsageDetails, setViewingUsageDetails] = useState<AIUsageRecord | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  
+  // Reset Shop Data state
+  const [selectedShopId, setSelectedShopId] = useState<string>('');
+  const [resetOptions, setResetOptions] = useState({
+    sales: false,
+    customers: false,
+    debtTransactions: false,
+    expenses: false,
+    giftCards: false,
+    activityLogs: false,
+    stockMovements: false
+  });
+  const [resetting, setResetting] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
   
   const ITEMS_PER_PAGE = 10;
 
@@ -611,6 +627,7 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                   { id: 'statistics', label: 'Statistics', icon: BarChart3 },
                   { id: 'coupons', label: 'Coupons', icon: Ticket },
                   { id: 'ai', label: 'AI Management', icon: Bot },
+                  { id: 'reset', label: 'Reset Shop Data', icon: RefreshCw },
                   { id: 'settings', label: 'Settings', icon: Settings }
                 ].map((tab) => (
                   <button
@@ -1979,6 +1996,231 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'reset' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Reset Shop Data</h2>
+                  <p className="text-sm text-gray-500 mt-1">Select a shop and choose what data to reset. Products/Stocks are preserved.</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+                {/* Shop Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Shop
+                  </label>
+                  <select
+                    value={selectedShopId}
+                    onChange={(e) => {
+                      setSelectedShopId(e.target.value);
+                      setResetSuccess(false);
+                      setResetError('');
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">-- Select a shop --</option>
+                    {shops.map(shop => (
+                      <option key={shop.shopId} value={shop.shopId}>
+                        {shop.shopName} ({shop.ownerEmail})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedShopId && (
+                  <>
+                    {/* Reset Options */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Select Data to Reset
+                      </label>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.sales}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, sales: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Sales/Transactions</span>
+                            <p className="text-xs text-gray-500">Delete all sales and transaction records</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.customers}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, customers: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Customers/Debtors</span>
+                            <p className="text-xs text-gray-500">Delete all customer records and debt information</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.debtTransactions}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, debtTransactions: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Debt Transactions</span>
+                            <p className="text-xs text-gray-500">Delete all debt payment and credit transaction records</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.expenses}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, expenses: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Expenses</span>
+                            <p className="text-xs text-gray-500">Delete all expense records</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.giftCards}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, giftCards: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Gift Cards</span>
+                            <p className="text-xs text-gray-500">Delete all gift card records</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.activityLogs}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, activityLogs: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Activity Logs</span>
+                            <p className="text-xs text-gray-500">Delete all activity log records</p>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.stockMovements}
+                            onChange={(e) => setResetOptions(prev => ({ ...prev, stockMovements: e.target.checked }))}
+                            className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-medium text-gray-900">Stock Movements</span>
+                            <p className="text-xs text-gray-500">Delete all stock movement history (products remain)</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Warning */}
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="font-semibold text-red-900 mb-1">Warning: This action cannot be undone!</h4>
+                          <p className="text-sm text-red-700">
+                            Selected data will be permanently deleted from the database. Products and stock levels will be preserved.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Success/Error Messages */}
+                    {resetSuccess && (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2 text-green-600">
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span className="text-sm">Shop data reset successfully!</span>
+                      </div>
+                    )}
+
+                    {resetError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600">
+                        <AlertCircle className="w-5 h-5" />
+                        <span className="text-sm">{resetError}</span>
+                      </div>
+                    )}
+
+                    {/* Reset Button */}
+                    <div className="flex justify-end pt-4 border-t border-gray-200">
+                      <button
+                        onClick={async () => {
+                          const hasAnyOption = Object.values(resetOptions).some(v => v);
+                          if (!hasAnyOption) {
+                            setResetError('Please select at least one data type to reset');
+                            return;
+                          }
+
+                          const confirmed = window.confirm(
+                            `Are you sure you want to reset the selected data for this shop? This action cannot be undone!\n\nSelected: ${Object.entries(resetOptions)
+                              .filter(([_, checked]) => checked)
+                              .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+                              .join(', ')}`
+                          );
+
+                          if (!confirmed) return;
+
+                          setResetting(true);
+                          setResetError('');
+                          setResetSuccess(false);
+
+                          try {
+                            await db.resetShopData(selectedShopId, resetOptions);
+                            setResetSuccess(true);
+                            setResetOptions({
+                              sales: false,
+                              customers: false,
+                              debtTransactions: false,
+                              expenses: false,
+                              giftCards: false,
+                              activityLogs: false,
+                              stockMovements: false
+                            });
+                          } catch (error: any) {
+                            setResetError(error.message || 'Failed to reset shop data');
+                          } finally {
+                            setResetting(false);
+                          }
+                        }}
+                        disabled={resetting || !Object.values(resetOptions).some(v => v)}
+                        className="flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-lg shadow-red-200 hover:shadow-xl disabled:shadow-none"
+                      >
+                        {resetting ? (
+                          <>
+                            <RefreshCw className="w-5 h-5 animate-spin" />
+                            <span>Resetting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-5 h-5" />
+                            <span>Reset Selected Data</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 
