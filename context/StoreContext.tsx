@@ -32,7 +32,7 @@ interface StoreContextType extends AppState {
   recordSale: (sale: Sale) => void;
   addCustomer: (customer: Customer) => void;
   updateCustomerDebt: (customerId: string, amount: number) => void;
-  recordDebtPayment: (customerId: string, amount: number) => void;
+  recordDebtPayment: (customerId: string, amount: number, paymentMethod?: 'cash' | 'transfer' | 'pos') => void;
   getDebtHistory: (customerId: string) => DebtTransaction[];
   addGiftCard: (card: GiftCard) => void;
   deleteGiftCard: (id: string) => void;
@@ -1308,7 +1308,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
      });
   };
 
-  const recordDebtPayment = async (customerId: string, amount: number) => {
+  const recordDebtPayment = async (customerId: string, amount: number, paymentMethod: 'cash' | 'transfer' | 'pos' = 'cash') => {
      const shopId = state.settings?.shopId || 'unknown';
      const hasValidShopId = isValidUUID(shopId);
      const canSync = canSyncToSupabase();
@@ -1348,9 +1348,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           items: [], // Empty items array for debt payments
           total: amount,
           profit: 0, // No profit on debt payments
-          paymentMethod: 'cash', // Default to cash for debt payments
+          paymentMethod: paymentMethod,
           customerId: customerId,
           isCredit: false,
+          isDebtPayment: true, // Mark as debt payment
           createdAt: now
         };
 

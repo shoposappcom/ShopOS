@@ -7,6 +7,7 @@ import { ViewMode, loadViewMode, saveViewMode, PAGE_IDS, DEFAULT_VIEW_MODE } fro
 import { Phone, Calendar, Clock, ArrowRight, Search, CheckCircle, MessageSquare, History, Upload, Plus, UserPlus, Printer, X } from 'lucide-react';
 import { Customer, DebtTransaction } from '../types';
 import { generateUUID } from '../services/supabase/client';
+import { PAYMENT_METHODS } from '../constants';
 
 export const Debtors: React.FC = () => {
   const { customers, t, recordDebtPayment, addCustomer, getDebtHistory, settings, currentUser } = useStore();
@@ -39,6 +40,7 @@ export const Debtors: React.FC = () => {
   // Payment Modal
   const [selectedDebtor, setSelectedDebtor] = useState<Customer | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'pos'>('cash');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [viewingHistory, setViewingHistory] = useState<Customer | null>(null);
   
@@ -63,6 +65,7 @@ export const Debtors: React.FC = () => {
   const handleOpenPayment = (customer: Customer) => {
     setSelectedDebtor(customer);
     setPaymentAmount('');
+    setPaymentMethod('cash'); // Reset to default
   };
 
   const handleProcessPayment = () => {
@@ -74,9 +77,11 @@ export const Debtors: React.FC = () => {
         return;
     }
 
-    recordDebtPayment(selectedDebtor.id, amount);
+    recordDebtPayment(selectedDebtor.id, amount, paymentMethod);
     alert(t('paymentSuccess'));
     setSelectedDebtor(null);
+    setPaymentAmount('');
+    setPaymentMethod('cash');
   };
 
   const handleSendReminder = (customer: Customer) => {
@@ -499,6 +504,27 @@ export const Debtors: React.FC = () => {
                         <span className="font-bold text-green-700">₦{Math.max(0, selectedDebtor.totalDebt - Number(paymentAmount)).toLocaleString()}</span>
                      </div>
                   )}
+
+                  <div>
+                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{t('paymentMethod')}</label>
+                     <div className="grid grid-cols-3 gap-2">
+                        {PAYMENT_METHODS.filter(m => m.id !== 'credit').map(method => (
+                           <button
+                              key={method.id}
+                              type="button"
+                              onClick={() => setPaymentMethod(method.id as 'cash' | 'transfer' | 'pos')}
+                              className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-xl border transition-all ${
+                                 paymentMethod === method.id 
+                                 ? 'bg-green-50 border-green-500 text-green-700 shadow-sm' 
+                                 : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                              }`}
+                           >
+                              <method.icon className="w-4 h-4" />
+                              <span className="text-[10px] font-bold uppercase truncate w-full text-center">{t(method.labelKey)}</span>
+                           </button>
+                        ))}
+                     </div>
+                  </div>
 
                   <div className="flex gap-3 mt-4">
                      <Button className="flex-1 py-3 text-lg" onClick={handleProcessPayment} disabled={!paymentAmount || Number(paymentAmount) <= 0}>

@@ -13,6 +13,7 @@ export const Dashboard: React.FC = () => {
   const [exportType, setExportType] = useState<'sales' | 'inventory' | 'debtors'>('sales');
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [includeUnpaidCredits, setIncludeUnpaidCredits] = useState(false);
 
   if (!currentUser || !settings) return null;
 
@@ -64,9 +65,16 @@ export const Dashboard: React.FC = () => {
   const filteredSales = useMemo(() => {
       return allSales.filter(s => {
           const d = new Date(s.date);
-          return d >= filterStart && d <= filterEnd;
+          const inDateRange = d >= filterStart && d <= filterEnd;
+          
+          // Exclude unpaid credit sales in default view
+          if (!includeUnpaidCredits && s.isCredit === true) {
+              return false;
+          }
+          
+          return inDateRange;
       });
-  }, [allSales, filterStart, filterEnd]);
+  }, [allSales, filterStart, filterEnd, includeUnpaidCredits]);
 
   const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
   const grossProfit = filteredSales.reduce((acc, s) => acc + (s.profit || 0), 0);
@@ -330,6 +338,21 @@ export const Dashboard: React.FC = () => {
              </select>
              <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
+
+          {/* Revenue View Toggle */}
+          {!isStockClerk && (
+            <button
+              onClick={() => setIncludeUnpaidCredits(!includeUnpaidCredits)}
+              className={`px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm border transition-all ${
+                includeUnpaidCredits
+                  ? 'bg-blue-50 border-blue-300 text-blue-700'
+                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
+              title={includeUnpaidCredits ? 'Showing all sales including unpaid credits' : 'Showing only paid sales'}
+            >
+              {includeUnpaidCredits ? 'All Sales' : 'Paid Only'}
+            </button>
+          )}
 
           {isAdminOrManager && (
             <Button onClick={() => setShowExportModal(true)} variant="outline" className="bg-white shadow-sm border-gray-200">

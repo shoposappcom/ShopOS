@@ -155,6 +155,7 @@ export interface Sale {
   paymentMethod: 'cash' | 'transfer' | 'pos' | 'credit' | 'gift_card' | 'split';
   customerId?: string; // Foreign Key: customerId → Customer.id (if tracked)
   isCredit: boolean;
+  isDebtPayment?: boolean; // True if this sale represents a debt payment
   dueDate?: string; // ISO date (for credit sales)
   giftCardCode?: string; // If a gift card was used
   giftCardAmount?: number; // How much was deducted from the gift card

@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Sale } from '../types';
-import { Search, Filter, Eye, ChevronLeft, ChevronRight, Check, X, Printer, Download } from 'lucide-react';
+import { Search, Filter, Eye, ChevronLeft, ChevronRight, Check, X, Printer, Download, Banknote, TrendingUp, Receipt } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { PAYMENT_METHODS } from '../constants';
 import html2canvas from 'html2canvas';
@@ -43,6 +43,14 @@ export const Transactions: React.FC = () => {
 
   const totalPages = Math.ceil(filteredSales.length / ITEMS_PER_PAGE);
   const displayedSales = filteredSales.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  // Calculate summary statistics
+  const stats = useMemo(() => {
+    const revenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+    const profit = filteredSales.reduce((acc, s) => acc + (s.profit || 0), 0);
+    const count = filteredSales.length;
+    return { revenue, profit, count };
+  }, [filteredSales]);
 
   useEffect(() => {
       setCurrentPage(1);
@@ -171,6 +179,45 @@ export const Transactions: React.FC = () => {
           </div>
       </div>
 
+      {/* Summary Statistics */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-green-50 text-green-600 shrink-0">
+            <Banknote className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">Total Revenue</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-1 truncate" title={stats.revenue.toString()}>
+              {settings.currency}{stats.revenue.toLocaleString()}
+            </h3>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
+            <TrendingUp className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">Net Profit</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-1 truncate" title={stats.profit.toString()}>
+              {settings.currency}{stats.profit.toLocaleString()}
+            </h3>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+          <div className="p-3 rounded-xl bg-blue-50 text-blue-600 shrink-0">
+            <Receipt className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">Transactions</p>
+            <h3 className="text-2xl font-bold text-gray-800 mt-1 truncate" title={stats.count.toString()}>
+              {stats.count}
+            </h3>
+          </div>
+        </div>
+      </div>
+
       {/* Sales List */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -198,13 +245,28 @@ export const Transactions: React.FC = () => {
                                       <div className="text-xs text-gray-400">{new Date(sale.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
                                   </td>
                                   <td className="p-4 text-center">
-                                      <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">{sale.items.length}</span>
+                                      {sale.isDebtPayment || (sale.items.length === 0 && sale.customerId) ? (
+                                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-xs font-bold">Debt Payment</span>
+                                      ) : (
+                                          <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-lg text-xs font-bold">{sale.items.length}</span>
+                                      )}
                                   </td>
                                   <td className="p-4 font-bold text-gray-900">{settings.currency}{sale.total.toLocaleString()}</td>
                                   <td className="p-4">
-                                      <span className="capitalize px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 font-medium">
-                                          {t(sale.paymentMethod)}
-                                      </span>
+                                      {sale.isDebtPayment || (sale.items.length === 0 && sale.customerId) ? (
+                                          <div className="flex flex-col gap-1">
+                                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
+                                                  Debt Payment
+                                              </span>
+                                              <span className="text-[10px] text-gray-500 capitalize">
+                                                  {t(sale.paymentMethod)}
+                                              </span>
+                                          </div>
+                                      ) : (
+                                          <span className="capitalize px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 font-medium">
+                                              {t(sale.paymentMethod)}
+                                          </span>
+                                      )}
                                   </td>
                                   {currentUser.role !== 'cashier' && (
                                       <td className="p-4 text-gray-600 text-xs">{sale.cashierName}</td>
