@@ -668,6 +668,7 @@ export const Admin: React.FC<AdminProps> = ({ onLogout }) => {
               { id: 'statistics', label: 'Statistics', icon: BarChart3 },
               { id: 'coupons', label: 'Coupons', icon: Ticket },
               { id: 'ai', label: 'AI Management', icon: Bot },
+              { id: 'reset', label: 'Reset Shop Data', icon: RefreshCw },
               { id: 'settings', label: 'Settings', icon: Settings }
             ].map((tab) => (
               <button
