@@ -2269,180 +2269,123 @@ export const deleteShop = async (shopId: string): Promise<void> => {
   
   const errors: string[] = [];
   
-  // Delete all shop data in parallel where possible
-  const deletePromises: Promise<void>[] = [];
+  // Helper function to handle deletion errors
+  const handleDelete = async (operation: () => Promise<void>, name: string): Promise<void> => {
+    try {
+      await operation();
+    } catch (err: any) {
+      console.error(`Error deleting ${name}:`, err);
+      errors.push(`${name}: ${err.message}`);
+      throw err; // Re-throw to stop sequential deletion if critical
+    }
+  };
   
-  // Delete all data tables
-  deletePromises.push(
-    resetShopSales(shopId).catch(err => errors.push(`Sales: ${err.message}`)),
-    resetShopCustomers(shopId).catch(err => errors.push(`Customers: ${err.message}`)),
-    resetShopDebtTransactions(shopId).catch(err => errors.push(`Debt Transactions: ${err.message}`)),
-    resetShopExpenses(shopId).catch(err => errors.push(`Expenses: ${err.message}`)),
-    resetShopGiftCards(shopId).catch(err => errors.push(`Gift Cards: ${err.message}`)),
-    resetShopActivityLogs(shopId).catch(err => errors.push(`Activity Logs: ${err.message}`)),
-    resetShopStockMovements(shopId).catch(err => errors.push(`Stock Movements: ${err.message}`))
-  );
-  
-  // Delete products
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting products for shop: ${shopId}`);
-      const { error } = await supabase.from('products').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting products:', error);
-        errors.push(`Products: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted products for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete shop-specific categories
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting categories for shop: ${shopId}`);
-      const { error } = await supabase.from('categories').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting categories:', error);
-        errors.push(`Categories: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted categories for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete expense categories
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting expense categories for shop: ${shopId}`);
-      const { error } = await supabase.from('expense_categories').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting expense categories:', error);
-        errors.push(`Expense Categories: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted expense categories for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete suppliers
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting suppliers for shop: ${shopId}`);
-      const { error } = await supabase.from('suppliers').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting suppliers:', error);
-        errors.push(`Suppliers: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted suppliers for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete users
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting users for shop: ${shopId}`);
-      const { error } = await supabase.from('users').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting users:', error);
-        errors.push(`Users: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted users for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete subscription
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting subscription for shop: ${shopId}`);
-      const { error } = await supabase.from('subscriptions').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting subscription:', error);
-        errors.push(`Subscription: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted subscription for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete shop settings
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting shop settings for shop: ${shopId}`);
-      const { error } = await supabase.from('shop_settings').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting shop settings:', error);
-        errors.push(`Shop Settings: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted shop settings for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete payments
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting payments for shop: ${shopId}`);
-      const { error } = await supabase.from('payment_records').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting payments:', error);
-        errors.push(`Payments: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted payments for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete shop summary
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting shop summary for shop: ${shopId}`);
-      const { error } = await supabase.from('shop_summaries').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting shop summary:', error);
-        errors.push(`Shop Summary: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted shop summary for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete AI usage records
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting AI usage records for shop: ${shopId}`);
-      const { error } = await supabase.from('ai_usage_records').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting AI usage records:', error);
-        errors.push(`AI Usage Records: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted AI usage records for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Delete coupon usages
-  deletePromises.push(
-    (async () => {
-      console.log(`🗑️ Deleting coupon usages for shop: ${shopId}`);
-      const { error } = await supabase.from('coupon_usages').delete().eq('shop_id', shopId);
-      if (error) {
-        console.error('Error deleting coupon usages:', error);
-        errors.push(`Coupon Usages: ${error.message}`);
-      } else {
-        console.log(`✅ Deleted coupon usages for shop ${shopId}`);
-      }
-    })()
-  );
-  
-  // Wait for all deletions to complete
-  await Promise.all(deletePromises);
+  try {
+    // STEP 1: Delete records that reference users (must be deleted before users)
+    console.log('📋 Step 1: Deleting records that reference users...');
+    await Promise.all([
+      resetShopExpenses(shopId).catch(err => { errors.push(`Expenses: ${err.message}`); }),
+      resetShopActivityLogs(shopId).catch(err => { errors.push(`Activity Logs: ${err.message}`); }),
+      resetShopStockMovements(shopId).catch(err => { errors.push(`Stock Movements: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('ai_usage_records').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`AI Usage Records: ${err.message}`); })
+    ]);
+    
+    // STEP 2: Delete sales (references users via cashier_id)
+    console.log('📋 Step 2: Deleting sales...');
+    await resetShopSales(shopId).catch(err => { errors.push(`Sales: ${err.message}`); });
+    
+    // STEP 3: Delete users (now safe since all references are gone)
+    console.log('📋 Step 3: Deleting users...');
+    const { error: usersError } = await supabase.from('users').delete().eq('shop_id', shopId);
+    if (usersError) {
+      errors.push(`Users: ${usersError.message}`);
+      throw usersError;
+    }
+    console.log(`✅ Deleted users for shop ${shopId}`);
+    
+    // STEP 4: Delete records that reference products (stock_movements already done in step 1)
+    // Delete products (must be before categories/suppliers if they reference them)
+    console.log('📋 Step 4: Deleting products...');
+    const { error: productsError } = await supabase.from('products').delete().eq('shop_id', shopId);
+    if (productsError) {
+      errors.push(`Products: ${productsError.message}`);
+      throw productsError;
+    }
+    console.log(`✅ Deleted products for shop ${shopId}`);
+    
+    // STEP 5: Delete records that reference customers
+    console.log('📋 Step 5: Deleting records that reference customers...');
+    await Promise.all([
+      resetShopDebtTransactions(shopId).catch(err => { errors.push(`Debt Transactions: ${err.message}`); }),
+      resetShopCustomers(shopId).catch(err => { errors.push(`Customers: ${err.message}`); })
+    ]);
+    
+    // STEP 6: Delete independent records (can be done in parallel)
+    console.log('📋 Step 6: Deleting independent records...');
+    await Promise.all([
+      resetShopGiftCards(shopId).catch(err => { errors.push(`Gift Cards: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('categories').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Categories: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('expense_categories').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Expense Categories: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('suppliers').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Suppliers: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('payment_records').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Payments: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('coupon_usages').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Coupon Usages: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('user_preferences').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`User Preferences: ${err.message}`); })
+    ]);
+    
+    // STEP 7: Delete subscription and shop summary (before shop_settings)
+    console.log('📋 Step 7: Deleting subscription and shop summary...');
+    await Promise.all([
+      (async () => {
+        const { error } = await supabase.from('subscriptions').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Subscription: ${err.message}`); }),
+      (async () => {
+        const { error } = await supabase.from('shop_summaries').delete().eq('shop_id', shopId);
+        if (error) throw error;
+      })().catch(err => { errors.push(`Shop Summary: ${err.message}`); })
+    ]);
+    
+    // STEP 8: Delete shop_settings LAST (many tables reference it via foreign keys)
+    console.log('📋 Step 8: Deleting shop settings (last)...');
+    const { error: settingsError } = await supabase.from('shop_settings').delete().eq('shop_id', shopId);
+    if (settingsError) {
+      errors.push(`Shop Settings: ${settingsError.message}`);
+      throw settingsError;
+    }
+    console.log(`✅ Deleted shop settings for shop ${shopId}`);
+    
+  } catch (error: any) {
+    console.error('❌ Shop deletion failed:', error);
+    if (errors.length > 0) {
+      throw new Error(`Some operations failed: ${errors.join('; ')}`);
+    }
+    throw error;
+  }
   
   if (errors.length > 0) {
-    console.error('❌ Some deletion operations failed:', errors);
-    throw new Error(`Some operations failed: ${errors.join('; ')}`);
+    console.warn('⚠️ Some deletion operations had errors (non-critical):', errors);
+    // Don't throw if there are only warnings - shop_settings deletion is the critical one
   }
   
   console.log(`✅ Shop deletion completed successfully for shop: ${shopId}`);
