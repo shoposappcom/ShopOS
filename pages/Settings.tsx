@@ -56,12 +56,14 @@ export const Settings: React.FC = () => {
   const shopCategories = categories.filter(c => c.shopId === currentShopId);
   const shopSuppliers = suppliers.filter(s => s.shopId === currentShopId);
   const shopExpenses = expenses.filter(e => e.shopId === currentShopId);
+  const shopProducts = products.filter(p => p.shopId === currentShopId);
   const shopActivityLogs = activityLogs.filter(log => log.shopId === currentShopId);
 
   // Filter archived data (after shopId filtering)
   const filteredCategories = shopCategories.filter(c => !c.isArchived);
   const filteredSuppliers = shopSuppliers.filter(s => !s.isArchived);
   const filteredExpenses = shopExpenses.filter(e => !e.isArchived);
+  const archivedProducts = shopProducts.filter(p => p.isArchived);
 
   const handleSaveUser = () => {
     if (!editingUser?.username || !editingUser?.fullName || !editingUser?.role) return;
