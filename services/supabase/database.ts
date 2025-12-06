@@ -771,14 +771,60 @@ export const createCategory = async (category: Category): Promise<Category> => {
   return dbToCategory(data);
 };
 
-export const getCategoriesByShop = async (shopId: string): Promise<Category[]> => {
+// System shop ID for default categories (available to all shops)
+const SYSTEM_SHOP_ID = 'e02e8276-32da-4d4e-a455-0f1f232ffffe';
+
+export const getDefaultCategories = async (): Promise<Category[]> => {
   const { data, error } = await supabase
     .from('categories')
     .select('*')
-    .eq('shop_id', shopId);
+    .eq('shop_id', SYSTEM_SHOP_ID)
+    .eq('is_archived', false);
   
-  if (error) handleError(error, 'getCategoriesByShop');
+  if (error) {
+    console.error('Error fetching default categories:', error);
+    return [];
+  }
   return (data || []).map(dbToCategory);
+};
+
+export const getCategoriesByShop = async (shopId: string): Promise<Category[]> => {
+  // Fetch both shop-specific categories and default categories
+  const [shopCategories, defaultCategories] = await Promise.all([
+    (async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('shop_id', shopId)
+        .eq('is_archived', false);
+      
+      if (error) {
+        console.error('Error fetching shop categories:', error);
+        return [];
+      }
+      return (data || []).map(dbToCategory);
+    })(),
+    getDefaultCategories()
+  ]);
+  
+  // Merge categories, avoiding duplicates by name (case-insensitive)
+  const categoryMap = new Map<string, Category>();
+  
+  // First add default categories
+  defaultCategories.forEach(cat => {
+    const key = cat.name.toLowerCase();
+    if (!categoryMap.has(key)) {
+      categoryMap.set(key, cat);
+    }
+  });
+  
+  // Then add shop-specific categories (these will override defaults if same name)
+  shopCategories.forEach(cat => {
+    const key = cat.name.toLowerCase();
+    categoryMap.set(key, cat);
+  });
+  
+  return Array.from(categoryMap.values());
 };
 
 export const updateCategory = async (categoryId: string, updates: Partial<Category>): Promise<Category> => {

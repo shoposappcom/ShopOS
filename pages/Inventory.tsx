@@ -4,12 +4,12 @@ import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { ViewToggle } from '../components/ViewToggle';
 import { ViewMode, loadViewMode, saveViewMode, PAGE_IDS, DEFAULT_VIEW_MODE } from '../utils/viewMode';
-import { Plus, Edit, Package, Search, Image as ImageIcon, UploadCloud, AlertTriangle, Calendar, Archive, Filter, Truck, History, Printer, X, ArrowRight, HelpCircle } from 'lucide-react';
+import { Plus, Edit, Package, Search, Image as ImageIcon, UploadCloud, AlertTriangle, Calendar, Archive, Filter, Truck, History, Printer, X, ArrowRight, HelpCircle, Trash2 } from 'lucide-react';
 import { Product, StockMovement } from '../types';
 import { generateUUID } from '../services/supabase/client';
 
 export const Inventory: React.FC = () => {
-  const { products, categories, suppliers, t, addProduct, editProduct, updateStock, hasPermission, currentUser, stockMovements, settings } = useStore();
+  const { products, categories, suppliers, t, addProduct, editProduct, deleteProduct, updateStock, hasPermission, currentUser, stockMovements, settings } = useStore();
   const [showModal, setShowModal] = useState(false);
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -237,6 +237,12 @@ export const Inventory: React.FC = () => {
       setShowHistoryModal(true);
   };
 
+  const handleDeleteProduct = (product: Product) => {
+    if (window.confirm(`Are you sure you want to archive "${product.name}"? It will be hidden but can be restored from Settings.`)) {
+      deleteProduct(product.id);
+    }
+  };
+
   const getProductHistory = (productId: string) => {
       return shopStockMovements.filter(m => m.productId === productId).sort((a, b) => new Date(b.createdAt || b.timestamp || 0).getTime() - new Date(a.createdAt || a.timestamp || 0).getTime());
   };
@@ -396,9 +402,14 @@ export const Inventory: React.FC = () => {
                     </span>
                   </div>
                   {canEdit && (
-                    <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(p); }} className="mt-1 w-full text-[9px] text-gray-500 hover:text-green-600">
-                      Edit
-                    </button>
+                    <div className="flex gap-1 mt-1">
+                      <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(p); }} className="flex-1 text-[9px] text-gray-500 hover:text-green-600">
+                        Edit
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteProduct(p); }} className="flex-1 text-[9px] text-red-500 hover:text-red-700" title="Archive">
+                        Delete
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -488,6 +499,9 @@ export const Inventory: React.FC = () => {
                          <button onClick={() => handleViewHistory(p)} className="flex-1 bg-white hover:bg-blue-50 text-blue-500 rounded-lg flex items-center justify-center transition-colors border border-gray-200 shadow-sm" title="History">
                            <History className="w-4 h-4" />
                          </button>
+                         <button onClick={() => handleDeleteProduct(p)} className="flex-1 bg-white hover:bg-red-50 text-red-500 rounded-lg flex items-center justify-center transition-colors border border-gray-200 shadow-sm" title="Archive">
+                           <Trash2 className="w-4 h-4" />
+                         </button>
                        </div>
                     </div>
                   )}
@@ -537,6 +551,9 @@ export const Inventory: React.FC = () => {
                         </button>
                         <button onClick={() => handleViewHistory(p)} className="p-2 bg-white hover:bg-blue-50 text-blue-500 rounded-lg transition-colors border border-gray-200" title="History">
                           <History className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteProduct(p)} className="p-2 bg-white hover:bg-red-50 text-red-500 rounded-lg transition-colors border border-gray-200" title="Archive">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     )}
@@ -623,6 +640,9 @@ export const Inventory: React.FC = () => {
                       </button>
                       <button onClick={() => handleViewHistory(p)} className="px-4 bg-white hover:bg-blue-50 text-blue-500 rounded-lg transition-colors border border-gray-200" title="History">
                         <History className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteProduct(p)} className="px-4 bg-white hover:bg-red-50 text-red-500 rounded-lg transition-colors border border-gray-200" title="Archive">
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   )}

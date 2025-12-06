@@ -28,6 +28,7 @@ interface StoreContextType extends AppState {
   addProduct: (product: Product) => void;
   editProduct: (product: Product) => void;
   deleteProduct: (productId: string) => void;
+  restoreProduct: (productId: string) => void;
   updateStock: (productId: string, quantity: number, type: 'carton' | 'unit', batchInfo?: {batch: string, expiry: string}) => void;
   recordSale: (sale: Sale) => void;
   addCustomer: (customer: Customer) => void;
@@ -922,11 +923,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteProduct = async (productId: string) => {
+    const product = state.products.find(p => p.id === productId);
     setState(prev => ({
       ...prev,
       products: prev.products.map(p => p.id === productId ? { ...p, isArchived: true } : p)
     }));
-    logActivity('DELETE_PRODUCT', `Archived product ID: ${productId}`);
+    logActivity('DELETE_PRODUCT', `Archived product: ${product?.name || productId}`);
     
     // Sync to Supabase or queue for later
     if (isValidUUID(state.settings?.shopId || '')) {
@@ -937,6 +939,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
       } else {
         queueOperation('UPDATE_PRODUCT', { isArchived: true }, productId);
+      }
+    }
+  };
+
+  const restoreProduct = async (productId: string) => {
+    const product = state.products.find(p => p.id === productId);
+    setState(prev => ({
+      ...prev,
+      products: prev.products.map(p => p.id === productId ? { ...p, isArchived: false } : p)
+    }));
+    logActivity('RESTORE_PRODUCT', `Restored product: ${product?.name || productId}`);
+    
+    // Sync to Supabase or queue for later
+    if (isValidUUID(state.settings?.shopId || '')) {
+      if (canSyncToSupabase()) {
+        db.updateProduct(productId, { isArchived: false }).catch(err => {
+          console.error('Failed to sync product restoration:', err);
+          queueOperation('UPDATE_PRODUCT', { isArchived: false }, productId);
+        });
+      } else {
+        queueOperation('UPDATE_PRODUCT', { isArchived: false }, productId);
       }
     }
   };
@@ -2140,6 +2163,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addProduct,
       editProduct,
       deleteProduct,
+      restoreProduct,
       updateStock,
       recordSale,
       addCustomer,

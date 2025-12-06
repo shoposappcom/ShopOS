@@ -3,13 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense } from '../types';
-import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight } from 'lucide-react';
+import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight, Package, RotateCcw } from 'lucide-react';
 import { generateUUID } from '../services/supabase/client';
 import { LanguageSelector } from '../components/LanguageSelector';
 
 export const Settings: React.FC = () => {
-  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense } = useStore();
-  const [activeTab, setActiveTab] = useState<'users' | 'profile' | 'logs' | 'business' | 'categories' | 'suppliers' | 'expenses'>('profile');
+  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense, products, restoreProduct } = useStore();
+  const [activeTab, setActiveTab] = useState<'users' | 'profile' | 'logs' | 'business' | 'categories' | 'suppliers' | 'expenses' | 'products'>('profile');
   
   // User Management State
   const [showUserModal, setShowUserModal] = useState(false);
@@ -38,6 +38,9 @@ export const Settings: React.FC = () => {
   // Log Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const LOGS_PER_PAGE = 20;
+
+  // Products (Archived) Filtering State
+  const [productSearch, setProductSearch] = useState('');
 
   const canManageUsers = hasPermission('manage_users');
   const canManageStock = hasPermission('manage_stock');
@@ -199,6 +202,7 @@ export const Settings: React.FC = () => {
             { id: 'categories', icon: Layers, label: t('categories'), show: canManageStock },
             { id: 'suppliers', icon: Truck, label: t('suppliers'), show: canManageStock },
             { id: 'expenses', icon: Receipt, label: t('expenses'), show: canViewFinancials },
+            { id: 'products', icon: Package, label: 'Archived Products', show: canManageStock },
             { id: 'logs', icon: FileText, label: t('activityLog'), show: isAdmin },
           ].map(tab => (
             tab.show && (
@@ -452,6 +456,78 @@ export const Settings: React.FC = () => {
                    </table>
                 </div>
              </div>
+          )}
+
+          {activeTab === 'products' && canManageStock && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-gray-800">Archived Products</h3>
+                <p className="text-sm text-gray-500">{archivedProducts.length} archived</p>
+              </div>
+              
+              {/* Search Filter */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                  <input 
+                    className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-800"
+                    placeholder="Search archived products..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Archived Products List */}
+              {archivedProducts.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-gray-400 font-medium">No archived products</p>
+                  <p className="text-sm text-gray-400 mt-1">Archived products will appear here</p>
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-500 font-medium">
+                      <tr>
+                        <th className="p-4">Product Name</th>
+                        <th className="p-4">Category</th>
+                        <th className="p-4">Barcode</th>
+                        <th className="p-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {archivedProducts
+                        .filter(p => 
+                          p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                          p.barcode.toLowerCase().includes(productSearch.toLowerCase()) ||
+                          p.category.toLowerCase().includes(productSearch.toLowerCase())
+                        )
+                        .map(product => (
+                          <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-4 font-medium text-gray-800">{product.name}</td>
+                            <td className="p-4 text-gray-500">{product.category}</td>
+                            <td className="p-4 text-gray-500 font-mono text-xs">{product.barcode || 'N/A'}</td>
+                            <td className="p-4 text-right">
+                              <button
+                                onClick={() => {
+                                  restoreProduct(product.id);
+                                  alert(`Product "${product.name}" has been restored`);
+                                }}
+                                className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                                title="Restore Product"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                Restore
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
 
           {activeTab === 'logs' && isAdmin && (
