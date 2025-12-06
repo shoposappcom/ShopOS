@@ -1669,13 +1669,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Sync to Supabase or queue for later
     if (categoryWithShop.shopId && isValidUUID(categoryWithShop.shopId)) {
       if (canSyncToSupabase()) {
-        db.createExpenseCategory(categoryWithShop).catch(err => {
-          console.error('Failed to sync expense category:', err);
+        try {
+          await db.createExpenseCategory(categoryWithShop);
+          console.log('✅ Expense category synced to Supabase:', categoryWithShop.name);
+        } catch (err: any) {
+          console.error('❌ Failed to sync expense category to Supabase:', err);
           queueOperation('CREATE_EXPENSE_CATEGORY', categoryWithShop, categoryWithShop.id);
-        });
+        }
       } else {
         queueOperation('CREATE_EXPENSE_CATEGORY', categoryWithShop, categoryWithShop.id);
       }
+    } else {
+      console.warn('⚠️ Cannot sync expense category: invalid shopId', categoryWithShop.shopId);
     }
   };
 

@@ -312,6 +312,23 @@ export const expenseToDb = (app: Expense): Omit<DbExpense, 'created_at' | 'updat
   is_archived: app.isArchived || false,
 });
 
+// Expense Category
+export const dbToExpenseCategory = (db: DbExpenseCategory): ExpenseCategory => ({
+  id: db.id,
+  shopId: db.shop_id,
+  name: db.name,
+  isArchived: db.is_archived || undefined,
+  createdAt: db.created_at,
+  updatedAt: db.updated_at || undefined,
+});
+
+export const expenseCategoryToDb = (app: ExpenseCategory): Omit<DbExpenseCategory, 'created_at' | 'updated_at'> => ({
+  id: app.id,
+  shop_id: app.shopId,
+  name: app.name,
+  is_archived: app.isArchived || false,
+});
+
 // GiftCard
 export const dbToGiftCard = (db: DbGiftCard): GiftCard => ({
   id: db.id,
@@ -1213,6 +1230,49 @@ export const updateExpense = async (expenseId: string, updates: Partial<Expense>
   
   if (error) handleError(error, 'updateExpense');
   return dbToExpense(data);
+};
+
+// ============================================================================
+// EXPENSE CATEGORY OPERATIONS
+// ============================================================================
+
+export const createExpenseCategory = async (category: ExpenseCategory): Promise<ExpenseCategory> => {
+  const dbData = expenseCategoryToDb(category);
+  const { data, error } = await supabase
+    .from('expense_categories')
+    .insert(dbData)
+    .select()
+    .single();
+  
+  if (error) handleError(error, 'createExpenseCategory');
+  return dbToExpenseCategory(data);
+};
+
+export const getExpenseCategoriesByShop = async (shopId: string): Promise<ExpenseCategory[]> => {
+  const { data, error } = await supabase
+    .from('expense_categories')
+    .select('*')
+    .eq('shop_id', shopId)
+    .eq('is_archived', false);
+  
+  if (error) handleError(error, 'getExpenseCategoriesByShop');
+  return (data || []).map(dbToExpenseCategory);
+};
+
+export const updateExpenseCategory = async (categoryId: string, updates: Partial<ExpenseCategory>): Promise<ExpenseCategory> => {
+  const dbUpdates: any = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+  
+  const { data, error } = await supabase
+    .from('expense_categories')
+    .update(dbUpdates)
+    .eq('id', categoryId)
+    .select()
+    .single();
+  
+  if (error) handleError(error, 'updateExpenseCategory');
+  return dbToExpenseCategory(data);
 };
 
 // ============================================================================
