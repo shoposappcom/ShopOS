@@ -378,7 +378,7 @@ export const Dashboard: React.FC = () => {
             {isSuperAdmin && (
                <>
                 <StatCard 
-                    title={t('netProfit')} 
+                    title={t('profit')} 
                     value={`₦${netProfit.toLocaleString()}`} 
                     icon={TrendingUp} 
                     color="text-emerald-600"
