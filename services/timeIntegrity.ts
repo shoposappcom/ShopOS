@@ -88,13 +88,13 @@ export const validateTimeIntegrity = (): { isValid: boolean; reason?: string } =
   }
   
   // Check for suspicious forward jumps (system clock set forward to extend trial)
-  // Allow up to 1 hour forward (for timezone adjustments), but flag larger jumps
-  const MAX_FORWARD_TIME_JUMP = 24 * 60 * 60 * 1000; // 24 hours
+  // Allow up to 7 days forward (for legitimate system restarts, timezone changes, etc.)
+  // Only warn, don't block functionality - forward time jumps are less suspicious than backward
+  const MAX_FORWARD_TIME_JUMP = 7 * 24 * 60 * 60 * 1000; // 7 days
   if (timeDiff > MAX_FORWARD_TIME_JUMP) {
-    return {
-      isValid: false,
-      reason: `Suspicious time jump detected: system time moved forward by ${Math.abs(timeDiff / 1000 / 60 / 60)} hours`
-    };
+    // Just warn, don't block - forward time jumps could be legitimate (system was off, timezone change, etc.)
+    console.warn(`⚠️ Time integrity check failed: Suspicious time jump detected: system time moved forward by ${Math.abs(timeDiff / 1000 / 60 / 60)} hours`);
+    // Still return valid to not block functionality
   }
   
   // Add new anchor periodically (every 5 minutes)

@@ -5,7 +5,7 @@ import { CreditCard, Lock, CheckCircle2, Clock, AlertCircle, Loader, Calendar, T
 import { getSubscriptionPrice, getDaysRemaining } from '../services/subscription';
 import { initializePayment, generatePaymentReference } from '../services/paystack';
 import { getShopPayments } from '../services/paymentTracking';
-import { validateCoupon, applyCoupon, getCouponByCode } from '../services/couponService';
+import { validateCoupon, validateCouponAsync, applyCoupon, getCouponByCode } from '../services/couponService';
 import { Coupon } from '../types';
 
 export const Payment: React.FC = () => {
@@ -65,16 +65,19 @@ export const Payment: React.FC = () => {
 
   // Reset coupon when plan changes
   useEffect(() => {
-    if (appliedCoupon) {
-      const validation = validateCoupon(appliedCoupon.code, selectedPlan);
-      if (!validation.valid || !validation.coupon) {
-        setAppliedCoupon(null);
-        setCouponError(validation.error || 'Coupon is not valid for this plan');
+    const checkCoupon = async () => {
+      if (appliedCoupon) {
+        const validation = await validateCouponAsync(appliedCoupon.code, selectedPlan);
+        if (!validation.valid || !validation.coupon) {
+          setAppliedCoupon(null);
+          setCouponError(validation.error || 'Coupon is not valid for this plan');
+        }
       }
-    }
+    };
+    checkCoupon();
   }, [selectedPlan]);
 
-  const handleApplyCoupon = () => {
+  const handleApplyCoupon = async () => {
     setCouponError('');
     setCouponSuccess('');
     setApplyingCoupon(true);
@@ -85,7 +88,8 @@ export const Payment: React.FC = () => {
       return;
     }
 
-    const validation = validateCoupon(couponCode.trim().toUpperCase(), selectedPlan);
+    // Use async version to refresh coupons from Supabase
+    const validation = await validateCouponAsync(couponCode.trim().toUpperCase(), selectedPlan);
     
     if (validation.valid && validation.coupon) {
       setAppliedCoupon(validation.coupon);
@@ -115,14 +119,16 @@ export const Payment: React.FC = () => {
       return;
     }
     
-    // Re-validate coupon before payment
+    // Re-validate coupon before payment (refresh from Supabase)
     if (appliedCoupon) {
-      const validation = validateCoupon(appliedCoupon.code, selectedPlan);
+      const validation = await validateCouponAsync(appliedCoupon.code, selectedPlan);
       if (!validation.valid || !validation.coupon) {
         setError(validation.error || 'Coupon is no longer valid');
         setAppliedCoupon(null);
         return;
       }
+      // Update applied coupon in case it was refreshed
+      setAppliedCoupon(validation.coupon);
     }
     
     setProcessing(true);

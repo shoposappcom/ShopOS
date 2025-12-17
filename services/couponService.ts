@@ -1,6 +1,7 @@
 import { Coupon, CouponUsage, SubscriptionPlan } from '../types';
 import { 
   getAllCoupons, 
+  getAllCouponsAsync,
   addCoupon, 
   updateCouponInAdminData, 
   deleteCouponFromAdminData,
@@ -116,12 +117,60 @@ export const getCouponByCode = (code: string): Coupon | undefined => {
   return coupons.find(c => c.code.toUpperCase() === code.toUpperCase());
 };
 
-// Validate coupon eligibility
+// Async version that refreshes from Supabase before getting coupon
+export const getCouponByCodeAsync = async (code: string): Promise<Coupon | undefined> => {
+  const coupons = await getAllCouponsAsync();
+  return coupons.find(c => c.code.toUpperCase() === code.toUpperCase());
+};
+
+// Validate coupon eligibility (synchronous version for backward compatibility)
 export const validateCoupon = (
   code: string, 
   plan: SubscriptionPlan
 ): { valid: boolean; error?: string; coupon?: Coupon } => {
   const coupon = getCouponByCode(code);
+  
+  if (!coupon) {
+    return { valid: false, error: 'Invalid coupon code' };
+  }
+  
+  if (!coupon.isActive) {
+    return { valid: false, error: 'This coupon is not active' };
+  }
+  
+  // Check expiration
+  if (coupon.expirationDate) {
+    const expiration = new Date(coupon.expirationDate);
+    const now = new Date();
+    if (expiration < now) {
+      return { valid: false, error: 'This coupon has expired' };
+    }
+  }
+  
+  // Check usage limit
+  if (coupon.maxUses !== undefined && coupon.currentUses >= coupon.maxUses) {
+    return { valid: false, error: 'This coupon has reached its usage limit' };
+  }
+  
+  // Check plan eligibility
+  if (!coupon.applicablePlans.includes(plan)) {
+    const validPlans = coupon.applicablePlans.join(' or ').toUpperCase();
+    return { 
+      valid: false, 
+      error: `This coupon is only valid for ${validPlans} plans` 
+    };
+  }
+  
+  return { valid: true, coupon };
+};
+
+// Async version that refreshes coupons from Supabase before validating
+export const validateCouponAsync = async (
+  code: string, 
+  plan: SubscriptionPlan
+): Promise<{ valid: boolean; error?: string; coupon?: Coupon }> => {
+  // Refresh coupons from Supabase if online
+  const coupon = await getCouponByCodeAsync(code);
   
   if (!coupon) {
     return { valid: false, error: 'Invalid coupon code' };

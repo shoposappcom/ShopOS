@@ -661,6 +661,24 @@ export const getAllCoupons = (): Coupon[] => {
   return adminData.coupons;
 };
 
+// Async version that refreshes from Supabase if online
+export const getAllCouponsAsync = async (): Promise<Coupon[]> => {
+  if (isOnline()) {
+    try {
+      const coupons = await db.getAllCouponsDb();
+      // Update localStorage cache
+      const adminData = loadAdminDataFromLocalStorage();
+      adminData.coupons = coupons;
+      saveAdminDataToLocalStorage(adminData);
+      return coupons;
+    } catch (error) {
+      console.error('❌ Failed to load coupons from Supabase, using localStorage:', error);
+    }
+  }
+  // Fallback to localStorage
+  return getAllCoupons();
+};
+
 export const getAllCouponUsages = (): CouponUsage[] => {
   const adminData = loadAdminDataFromLocalStorage();
   return adminData.couponUsages;
