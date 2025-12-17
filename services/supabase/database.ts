@@ -4,13 +4,13 @@ import {
   DbShopSettings, DbUser, DbCategory, DbSupplier, DbProduct, DbCustomer,
   DbSale, DbDebtTransaction, DbStockMovement, DbExpense, DbGiftCard,
   DbActivityLog, DbSubscription, DbPaymentRecord, DbAdminConfig, DbCoupon,
-  DbCouponUsage, DbAIUsageRecord, DbShopSummary, DbExpenseCategory
+  DbCouponUsage, DbAIUsageRecord, DbShopSummary, DbExpenseCategory, DbExpenseTemplate
 } from './types';
 import {
   ShopSettings, User, Category, Supplier, Product, Customer, Sale,
   DebtTransaction, StockMovement, Expense, GiftCard, ActivityLog,
   Subscription, PaymentRecord, AdminConfig, Coupon, CouponUsage,
-  AIUsageRecord, ShopSummary, Language, ExpenseCategory
+  AIUsageRecord, ShopSummary, Language, ExpenseCategory, ExpenseTemplate
 } from '../../types';
 
 // ============================================================================
@@ -326,6 +326,29 @@ export const expenseCategoryToDb = (app: ExpenseCategory): Omit<DbExpenseCategor
   id: app.id,
   shop_id: app.shopId,
   name: app.name,
+  is_archived: app.isArchived || false,
+});
+
+// Expense Template
+export const dbToExpenseTemplate = (db: DbExpenseTemplate): ExpenseTemplate => ({
+  id: db.id,
+  shopId: db.shop_id,
+  name: db.name,
+  description: db.description,
+  amount: db.amount,
+  category: db.category,
+  isArchived: db.is_archived || undefined,
+  createdAt: db.created_at,
+  updatedAt: db.updated_at || undefined,
+});
+
+export const expenseTemplateToDb = (app: ExpenseTemplate): Omit<DbExpenseTemplate, 'created_at' | 'updated_at'> => ({
+  id: app.id,
+  shop_id: app.shopId,
+  name: app.name,
+  description: app.description,
+  amount: app.amount,
+  category: app.category,
   is_archived: app.isArchived || false,
 });
 
@@ -1276,6 +1299,52 @@ export const updateExpenseCategory = async (categoryId: string, updates: Partial
 };
 
 // ============================================================================
+// EXPENSE TEMPLATE OPERATIONS
+// ============================================================================
+
+export const createExpenseTemplate = async (template: ExpenseTemplate): Promise<ExpenseTemplate> => {
+  const dbData = expenseTemplateToDb(template);
+  const { data, error } = await supabase
+    .from('expense_templates')
+    .insert(dbData)
+    .select()
+    .single();
+  
+  if (error) handleError(error, 'createExpenseTemplate');
+  return dbToExpenseTemplate(data);
+};
+
+export const getExpenseTemplatesByShop = async (shopId: string): Promise<ExpenseTemplate[]> => {
+  const { data, error } = await supabase
+    .from('expense_templates')
+    .select('*')
+    .eq('shop_id', shopId)
+    .eq('is_archived', false);
+  
+  if (error) handleError(error, 'getExpenseTemplatesByShop');
+  return (data || []).map(dbToExpenseTemplate);
+};
+
+export const updateExpenseTemplate = async (templateId: string, updates: Partial<ExpenseTemplate>): Promise<ExpenseTemplate> => {
+  const dbUpdates: any = {};
+  if (updates.name !== undefined) dbUpdates.name = updates.name;
+  if (updates.description !== undefined) dbUpdates.description = updates.description;
+  if (updates.amount !== undefined) dbUpdates.amount = updates.amount;
+  if (updates.category !== undefined) dbUpdates.category = updates.category;
+  if (updates.isArchived !== undefined) dbUpdates.is_archived = updates.isArchived;
+  
+  const { data, error } = await supabase
+    .from('expense_templates')
+    .update(dbUpdates)
+    .eq('id', templateId)
+    .select()
+    .single();
+  
+  if (error) handleError(error, 'updateExpenseTemplate');
+  return dbToExpenseTemplate(data);
+};
+
+// ============================================================================
 // GIFT CARD OPERATIONS
 // ============================================================================
 
@@ -1944,6 +2013,7 @@ export const loadAllShopData = async (shopId: string) => {
     users,
     categories,
     expenseCategories,
+    expenseTemplates,
     suppliers,
     products,
     customers,
@@ -1960,6 +2030,7 @@ export const loadAllShopData = async (shopId: string) => {
     getUsersByShop(shopId),
     getCategoriesByShop(shopId),
     getExpenseCategoriesByShop(shopId),
+    getExpenseTemplatesByShop(shopId),
     getSuppliersByShop(shopId),
     getProductsByShop(shopId),
     getCustomersByShop(shopId),
@@ -1978,6 +2049,7 @@ export const loadAllShopData = async (shopId: string) => {
     users,
     categories,
     expenseCategories,
+    expenseTemplates,
     suppliers,
     products,
     customers,

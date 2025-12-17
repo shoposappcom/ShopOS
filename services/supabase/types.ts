@@ -52,6 +52,18 @@ export interface DbExpenseCategory {
   updated_at: string | null;
 }
 
+export interface DbExpenseTemplate {
+  id: string;
+  shop_id: string;
+  name: string;
+  description: string;
+  amount: number;
+  category: string;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export interface DbSupplier {
   id: string;
   shop_id: string;

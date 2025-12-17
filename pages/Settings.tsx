@@ -2,13 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
-import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense, ExpenseCategory } from '../types';
+import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense, ExpenseCategory, ExpenseTemplate } from '../types';
 import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight, Package, RotateCcw } from 'lucide-react';
 import { generateUUID } from '../services/supabase/client';
 import { LanguageSelector } from '../components/LanguageSelector';
 
 export const Settings: React.FC = () => {
-  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense, products, restoreProduct, expenseCategories, addExpenseCategory } = useStore();
+  const { t, users, currentUser, language, setLanguage, addUser, updateUser, deleteUser, hasPermission, activityLogs, settings, updateSettings, categories, addCategory, editCategory, deleteCategory, suppliers, addSupplier, editSupplier, deleteSupplier, expenses, addExpense, deleteExpense, products, restoreProduct, expenseCategories, addExpenseCategory, expenseTemplates, addExpenseTemplate, editExpenseTemplate, deleteExpenseTemplate } = useStore();
   const [activeTab, setActiveTab] = useState<'users' | 'profile' | 'logs' | 'business' | 'categories' | 'suppliers' | 'expenses' | 'products'>('profile');
   
   // User Management State
@@ -28,6 +28,11 @@ export const Settings: React.FC = () => {
   const [editingExp, setEditingExp] = useState<Partial<Expense> | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showAddCategory, setShowAddCategory] = useState(false);
+  
+  // Expense Template Management State
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Partial<ExpenseTemplate> | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   // Business Settings State
   const [bizForm, setBizForm] = useState<Partial<ShopSettings>>({});
@@ -60,11 +65,13 @@ export const Settings: React.FC = () => {
   const shopExpenses = expenses.filter(e => e.shopId === currentShopId);
   const shopProducts = products.filter(p => p.shopId === currentShopId);
   const shopActivityLogs = activityLogs.filter(log => log.shopId === currentShopId);
+  const shopExpenseTemplates = (expenseTemplates || []).filter(t => t.shopId === currentShopId);
 
   // Filter archived data (after shopId filtering)
   const filteredCategories = shopCategories.filter(c => !c.isArchived);
   const filteredSuppliers = shopSuppliers.filter(s => !s.isArchived);
   const filteredExpenses = shopExpenses.filter(e => !e.isArchived);
+  const filteredExpenseTemplates = shopExpenseTemplates.filter(t => !t.isArchived);
   const archivedProducts = shopProducts.filter(p => p.isArchived);
 
   const handleSaveUser = () => {
@@ -157,6 +164,46 @@ export const Settings: React.FC = () => {
      setEditingExp(null);
      setShowAddCategory(false);
      setNewCategoryName('');
+     setSelectedTemplateId(null);
+  };
+
+  const handleSaveTemplate = () => {
+     if (!editingTemplate?.name || !editingTemplate.description || !editingTemplate.amount) return;
+     if (editingTemplate.id) {
+        editExpenseTemplate({
+           id: editingTemplate.id,
+           shopId: settings?.shopId || '',
+           name: editingTemplate.name,
+           description: editingTemplate.description,
+           amount: Number(editingTemplate.amount),
+           category: editingTemplate.category || 'General',
+           createdAt: editingTemplate.createdAt || new Date().toISOString(),
+           updatedAt: new Date().toISOString()
+        } as ExpenseTemplate);
+     } else {
+        addExpenseTemplate({
+           id: generateUUID(),
+           shopId: settings?.shopId || '',
+           name: editingTemplate.name,
+           description: editingTemplate.description,
+           amount: Number(editingTemplate.amount),
+           category: editingTemplate.category || 'General',
+           createdAt: new Date().toISOString()
+        });
+     }
+     setShowTemplateModal(false);
+     setEditingTemplate(null);
+  };
+
+  const handleUseTemplate = (template: ExpenseTemplate) => {
+     setSelectedTemplateId(template.id);
+     setEditingExp({
+        description: template.description,
+        amount: template.amount,
+        category: template.category,
+        date: new Date().toISOString()
+     });
+     setShowExpModal(true);
   };
 
   // Default expense categories
@@ -458,36 +505,107 @@ export const Settings: React.FC = () => {
           )}
 
           {activeTab === 'expenses' && canViewFinancials && (
-             <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                   <h3 className="text-lg font-bold text-gray-800">{t('manageExpenses')}</h3>
-                   <Button size="sm" onClick={() => { setEditingExp({}); setShowExpModal(true); }}>
-                      <Plus className="w-4 h-4 mr-1" /> {t('addExpense')}
-                   </Button>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                   <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-50 text-gray-500 font-medium">
-                         <tr>
-                            <th className="p-3">{t('description')}</th>
-                            <th className="p-3">{t('category')}</th>
-                            <th className="p-3">{t('amount')}</th>
-                            <th className="p-3">Action</th>
-                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                         {filteredExpenses.map(exp => (
-                            <tr key={exp.id}>
-                               <td className="p-3 font-medium text-gray-800">{exp.description}</td>
-                               <td className="p-3 text-gray-500">{exp.category}</td>
-                               <td className="p-3 font-bold text-red-600">₦{exp.amount.toLocaleString()}</td>
-                               <td className="p-3">
-                                  <button onClick={() => deleteExpense(exp.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
-                               </td>
-                            </tr>
+             <div className="space-y-6">
+                {/* Expense Templates Section */}
+                <div className="space-y-4">
+                   <div className="flex justify-between items-center">
+                      <div>
+                         <h3 className="text-lg font-bold text-gray-800">Expense Templates</h3>
+                         <p className="text-sm text-gray-500">Create templates for recurring expenses</p>
+                      </div>
+                      <Button size="sm" onClick={() => { setEditingTemplate({}); setShowTemplateModal(true); }}>
+                         <Plus className="w-4 h-4 mr-1" /> Add Template
+                      </Button>
+                   </div>
+                   {filteredExpenseTemplates.length === 0 ? (
+                      <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-8 text-center">
+                         <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                         <p className="text-gray-400 font-medium">No expense templates</p>
+                         <p className="text-sm text-gray-400 mt-1">Create templates for quick expense entry</p>
+                      </div>
+                   ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                         {filteredExpenseTemplates.map(template => (
+                            <div key={template.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                               <div className="flex justify-between items-start mb-2">
+                                  <div className="flex-1">
+                                     <h4 className="font-bold text-gray-800">{template.name}</h4>
+                                     <p className="text-sm text-gray-600 mt-1">{template.description}</p>
+                                  </div>
+                                  <div className="flex gap-2 ml-2">
+                                     <button 
+                                        onClick={() => handleUseTemplate(template)}
+                                        className="p-2 hover:bg-green-50 rounded-lg text-green-600"
+                                        title="Use Template"
+                                     >
+                                        <Plus className="w-4 h-4" />
+                                     </button>
+                                     <button 
+                                        onClick={() => { setEditingTemplate(template); setShowTemplateModal(true); }}
+                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                                        title="Edit Template"
+                                     >
+                                        <Edit className="w-4 h-4" />
+                                     </button>
+                                     <button 
+                                        onClick={() => deleteExpenseTemplate(template.id)}
+                                        className="p-2 hover:bg-red-50 rounded-lg text-red-500"
+                                        title="Delete Template"
+                                     >
+                                        <Trash2 className="w-4 h-4" />
+                                     </button>
+                                  </div>
+                               </div>
+                               <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                  <span className="text-xs text-gray-500">{template.category}</span>
+                                  <span className="font-bold text-red-600">₦{template.amount.toLocaleString()}</span>
+                               </div>
+                            </div>
                          ))}
-                      </tbody>
-                   </table>
+                      </div>
+                   )}
+                </div>
+
+                {/* Expenses List Section */}
+                <div className="space-y-4">
+                   <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-bold text-gray-800">{t('manageExpenses')}</h3>
+                      <Button size="sm" onClick={() => { setEditingExp({}); setSelectedTemplateId(null); setShowExpModal(true); }}>
+                         <Plus className="w-4 h-4 mr-1" /> {t('addExpense')}
+                      </Button>
+                   </div>
+                   {filteredExpenses.length === 0 ? (
+                      <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-8 text-center">
+                         <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                         <p className="text-gray-400 font-medium">No expenses recorded</p>
+                         <p className="text-sm text-gray-400 mt-1">Add expenses manually or use a template</p>
+                      </div>
+                   ) : (
+                      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                         <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-500 font-medium">
+                               <tr>
+                                  <th className="p-3">{t('description')}</th>
+                                  <th className="p-3">{t('category')}</th>
+                                  <th className="p-3">{t('amount')}</th>
+                                  <th className="p-3">Action</th>
+                               </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                               {filteredExpenses.map(exp => (
+                                  <tr key={exp.id}>
+                                     <td className="p-3 font-medium text-gray-800">{exp.description}</td>
+                                     <td className="p-3 text-gray-500">{exp.category}</td>
+                                     <td className="p-3 font-bold text-red-600">₦{exp.amount.toLocaleString()}</td>
+                                     <td className="p-3">
+                                        <button onClick={() => deleteExpense(exp.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                                     </td>
+                                  </tr>
+                               ))}
+                            </tbody>
+                         </table>
+                      </div>
+                   )}
                 </div>
              </div>
           )}
@@ -760,6 +878,40 @@ export const Settings: React.FC = () => {
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
                <h3 className="text-lg font-bold text-gray-800 mb-4">{t('addExpense')}</h3>
                <div className="space-y-3">
+                  {/* Template Selection */}
+                  {filteredExpenseTemplates.length > 0 && (
+                     <div className="mb-4 pb-4 border-b border-gray-200">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Use Template (Optional)</label>
+                        <select 
+                           className={inputClass}
+                           value={selectedTemplateId || ''}
+                           onChange={e => {
+                              const templateId = e.target.value;
+                              setSelectedTemplateId(templateId || null);
+                              if (templateId) {
+                                 const template = filteredExpenseTemplates.find(t => t.id === templateId);
+                                 if (template) {
+                                    setEditingExp({
+                                       description: template.description,
+                                       amount: template.amount,
+                                       category: template.category,
+                                       date: new Date().toISOString()
+                                    });
+                                 }
+                              }
+                           }}
+                        >
+                           <option value="">Select a template...</option>
+                           {filteredExpenseTemplates.map(template => (
+                              <option key={template.id} value={template.id}>{template.name}</option>
+                           ))}
+                        </select>
+                        {selectedTemplateId && (
+                           <p className="text-xs text-gray-500 mt-1">Template loaded. You can modify the values below.</p>
+                        )}
+                     </div>
+                  )}
+                  
                   <input className={inputClass} placeholder={t('description')} value={editingExp?.description || ''} onChange={e => setEditingExp({...editingExp, description: e.target.value})} />
                   <div className="relative">
                      <span className="absolute left-3 top-2.5 text-gray-400 font-bold">₦</span>
@@ -832,7 +984,53 @@ export const Settings: React.FC = () => {
                </div>
                <div className="flex gap-3 mt-6">
                   <Button className="flex-1" onClick={handleSaveExpense}>{t('save')}</Button>
-                  <Button variant="outline" className="flex-1" onClick={() => setShowExpModal(false)}>{t('cancel')}</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => { setShowExpModal(false); setSelectedTemplateId(null); }}>{t('cancel')}</Button>
+               </div>
+            </div>
+         </div>
+      )}
+
+      {/* Expense Template Modal */}
+      {showTemplateModal && (
+         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+               <h3 className="text-lg font-bold text-gray-800 mb-4">{editingTemplate?.id ? 'Edit Template' : 'Create Expense Template'}</h3>
+               <div className="space-y-3">
+                  <input 
+                     className={inputClass} 
+                     placeholder="Template Name (e.g., Daily Rent, Monthly Utilities)" 
+                     value={editingTemplate?.name || ''} 
+                     onChange={e => setEditingTemplate({...editingTemplate, name: e.target.value})} 
+                  />
+                  <input 
+                     className={inputClass} 
+                     placeholder={t('description')} 
+                     value={editingTemplate?.description || ''} 
+                     onChange={e => setEditingTemplate({...editingTemplate, description: e.target.value})} 
+                  />
+                  <div className="relative">
+                     <span className="absolute left-3 top-2.5 text-gray-400 font-bold">₦</span>
+                     <input 
+                        type="number" 
+                        className={`${inputClass} pl-8`} 
+                        placeholder="0.00" 
+                        value={editingTemplate?.amount || ''} 
+                        onChange={e => setEditingTemplate({...editingTemplate, amount: e.target.value})} 
+                     />
+                  </div>
+                  <select 
+                     className={inputClass} 
+                     value={editingTemplate?.category || 'General'} 
+                     onChange={e => setEditingTemplate({...editingTemplate, category: e.target.value})}
+                  >
+                     {allExpenseCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                     ))}
+                  </select>
+               </div>
+               <div className="flex gap-3 mt-6">
+                  <Button className="flex-1" onClick={handleSaveTemplate}>{t('save')}</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setShowTemplateModal(false)}>{t('cancel')}</Button>
                </div>
             </div>
          </div>

@@ -19,7 +19,9 @@ export type SyncOperationType =
   | 'UPDATE_SETTINGS'
   | 'CREATE_ACTIVITY_LOG'
   | 'UPDATE_SUBSCRIPTION'
-  | 'CREATE_PAYMENT';
+  | 'CREATE_PAYMENT'
+  | 'CREATE_EXPENSE_CATEGORY'
+  | 'CREATE_EXPENSE_TEMPLATE' | 'UPDATE_EXPENSE_TEMPLATE';
 
 export interface SyncOperation {
   id: string;

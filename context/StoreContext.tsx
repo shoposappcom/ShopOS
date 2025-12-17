@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { AppState, User, Product, Sale, Customer, Language, UserRole, PermissionAction, PERMISSIONS, ActivityLog, DebtTransaction, ShopSettings, GiftCard, Category, Supplier, Expense, StockMovement, RegistrationData, Subscription, SubscriptionPlan, ShopSummary, ExpenseCategory } from '../types';
+import { AppState, User, Product, Sale, Customer, Language, UserRole, PermissionAction, PERMISSIONS, ActivityLog, DebtTransaction, ShopSettings, GiftCard, Category, Supplier, Expense, ExpenseTemplate, StockMovement, RegistrationData, Subscription, SubscriptionPlan, ShopSummary, ExpenseCategory } from '../types';
 import { loadStateFromLocalStorage, saveStateToLocalStorage } from '../services/storage';
 import { TRANSLATIONS, INITIAL_CATEGORIES } from '../constants';
 import { createTrialSubscription, checkSubscriptionStatus, isSubscriptionActive, extendSubscription, verifySubscriptionIntegrity, getDaysRemaining, getSubscriptionPrice } from '../services/subscription';
@@ -55,6 +55,11 @@ interface StoreContextType extends AppState {
   
   // Expense Category Management
   addExpenseCategory: (expenseCategory: ExpenseCategory) => void;
+  
+  // Expense Template Management
+  addExpenseTemplate: (template: ExpenseTemplate) => void;
+  editExpenseTemplate: (template: ExpenseTemplate) => void;
+  deleteExpenseTemplate: (id: string) => void;
 
   t: (key: string) => string;
   hasPermission: (action: PermissionAction | string) => boolean;
@@ -86,6 +91,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [online, setOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(getPendingCount());
+  const hasReloadedDataRef = useRef(false);
 
   // Load language from Supabase (per user) or localStorage fallback
   useEffect(() => {
@@ -115,6 +121,68 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     
     loadLanguage();
   }, [state.currentUser?.id, state.settings?.shopId]);
+
+  // Reload shop data from Supabase on app initialization if user is already logged in
+  // This ensures gift cards and other data persist after page refresh
+  // CRITICAL: Skip test accounts to prevent data mixing
+  useEffect(() => {
+    const reloadShopData = async () => {
+      // Only reload if:
+      // 1. User is logged in
+      // 2. Shop ID exists and is valid UUID
+      // 3. App is online
+      // 4. We haven't already reloaded
+      // 5. NOT a test account (test accounts use fixed shop ID)
+      if (hasReloadedDataRef.current || !state.currentUser || !state.settings?.shopId || !isValidUUID(state.settings.shopId) || !isOnline()) {
+        return;
+      }
+
+      // Skip test accounts - they should use their own isolated data
+      const { isTestAccount } = await import('../services/testData');
+      if (isTestAccount(state.settings.shopId)) {
+        console.log('🧪 Skipping data reload for test account - using isolated test data');
+        return;
+      }
+
+      hasReloadedDataRef.current = true;
+
+      try {
+        console.log('🔄 Reloading shop data from Supabase on initialization...');
+        const freshShopData = await db.loadAllShopData(state.settings.shopId);
+        
+        // CRITICAL: COMPLETELY REPLACE all data with fresh shop data to prevent data mixing
+        // Do NOT merge with previous shop's data
+        setState(prev => ({
+          ...prev,
+          // Always use the loaded shop data, or empty arrays if none exists
+          users: freshShopData.users || [],
+          products: freshShopData.products || [],
+          categories: freshShopData.categories || [],
+          expenseCategories: freshShopData.expenseCategories || [],
+          expenseTemplates: freshShopData.expenseTemplates || [],
+          suppliers: freshShopData.suppliers || [],
+          expenses: freshShopData.expenses || [],
+          sales: freshShopData.sales || [],
+          customers: freshShopData.customers || [],
+          debtTransactions: freshShopData.debtTransactions || [],
+          stockMovements: freshShopData.stockMovements || [],
+          giftCards: freshShopData.giftCards || [], // Critical: reload gift cards
+          activityLogs: freshShopData.activityLogs || [],
+          settings: freshShopData.settings || prev.settings,
+          subscription: freshShopData.subscription || prev.subscription,
+          payments: freshShopData.payments || [],
+        }));
+        
+        console.log('✅ Shop data reloaded from Supabase');
+      } catch (error) {
+        console.error('Failed to reload shop data from Supabase:', error);
+        // Fallback to localStorage data - don't throw, just log error
+      }
+    };
+
+    // Run on mount
+    reloadShopData();
+  }, []); // Empty dependency array - only run on mount
 
   // Persist state changes to localStorage
   useEffect(() => {
@@ -411,6 +479,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       users,
       products,
       categories,
+      expenseCategories: [],
+      expenseTemplates: [],
       suppliers,
       expenses,
       sales,
@@ -430,6 +500,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       users,
       products,
       categories,
+      expenseCategories: [],
+      expenseTemplates: [],
       suppliers,
       expenses,
       sales,
@@ -519,8 +591,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
     
     // If test account, ensure test shop exists
+    let isTestAccountLogin = false;
     if (testAccount) {
       const testShopId = getTestShopId();
+      isTestAccountLogin = true;
       console.log('🧪 Test account login detected - initializing test shop...');
       
       try {
@@ -531,12 +605,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (!existingShop) {
             console.log('📦 Creating test shop with sample data...');
             await initializeTestShop(testShopId);
+          } else {
+            // Test shop exists in Supabase, but we still want to use fresh test data
+            // Initialize locally to ensure clean test data
+            console.log('📦 Reinitializing test shop with fresh data...');
+            await initializeTestShop(testShopId);
           }
         } else {
           // Offline: Check local storage
           const localState = loadStateFromLocalStorage();
           if (!localState.settings || localState.settings.shopId !== testShopId) {
             console.log('📦 Initializing test shop locally...');
+            await initializeTestShop(testShopId);
+          } else {
+            // Test shop exists locally, reinitialize to ensure clean data
+            console.log('📦 Reinitializing test shop with fresh data...');
             await initializeTestShop(testShopId);
           }
         }
@@ -545,8 +628,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
     
-    // PRIMARY: Try Supabase authentication first (if online)
-    if (isOnline()) {
+    // PRIMARY: Try Supabase authentication first (if online and NOT test account)
+    // For test accounts, we skip Supabase data loading to use the fresh test data we just initialized
+    if (isOnline() && !isTestAccountLogin) {
       try {
         console.log('🔐 Authenticating via Supabase...');
         const authResult = await db.authenticateUser(trimmedUsername, trimmedPin);
@@ -573,6 +657,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               users: fullShopData.users || [],
               products: fullShopData.products || [],
               categories: fullShopData.categories || [],
+              expenseCategories: fullShopData.expenseCategories || [],
+              expenseTemplates: fullShopData.expenseTemplates || [],
               suppliers: fullShopData.suppliers || [],
               expenses: fullShopData.expenses || [],
               sales: fullShopData.sales || [],
@@ -594,7 +680,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
     
-    // FALLBACK: Try local users if Supabase auth failed or offline
+    // FALLBACK: Try local users if Supabase auth failed or offline (or for test accounts)
     if (!user) {
       console.log('🔐 Trying local authentication...');
       user = state.users.find(u => {
@@ -604,18 +690,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return matchesCredential && u.password === trimmedPin;
       }) || null;
       
-      // If local user found, filter all data by their shopId to prevent data mixing
+      // If local user found, COMPLETELY REPLACE data with only their shop's data to prevent data mixing
       if (user && user.shopId) {
-        console.log('🔍 Filtering local data by shopId:', user.shopId);
+        console.log('🔍 Isolating data for shopId:', user.shopId);
         const userShopId = user.shopId;
         
-        // Filter all data to only include current shop's data
+        // CRITICAL: COMPLETELY REPLACE all data with only current shop's data
+        // Do NOT merge - filter and replace to ensure complete isolation
         setState(prev => ({
           ...prev,
           users: prev.users.filter(u => u.shopId === userShopId),
           products: prev.products.filter(p => p.shopId === userShopId),
           categories: prev.categories.filter(c => c.shopId === userShopId),
           expenseCategories: prev.expenseCategories.filter(c => c.shopId === userShopId),
+          expenseTemplates: prev.expenseTemplates?.filter(t => t.shopId === userShopId) || [],
           suppliers: prev.suppliers.filter(s => s.shopId === userShopId),
           expenses: prev.expenses.filter(e => e.shopId === userShopId),
           sales: prev.sales.filter(s => s.shopId === userShopId),
@@ -629,7 +717,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           payments: prev.payments.filter(p => p.shopId === userShopId),
         }));
         
-        console.log('✅ Local data filtered by shopId');
+        console.log('✅ Local data isolated by shopId');
       }
     }
     
@@ -662,8 +750,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       const updatedUser = { ...user, lastLogin: new Date().toISOString() };
       
-      // If we have a shopId, ensure we reload fresh data from Supabase (if online) to prevent data mixing
-      if (user.shopId && isValidUUID(user.shopId) && isOnline()) {
+      // Check if this is a test account - skip Supabase reload for test accounts
+      const { isTestAccount } = await import('../services/testData');
+      const isTestShop = user.shopId && isTestAccount(user.shopId);
+      
+      // If we have a shopId, ensure we reload fresh data from Supabase (if online and NOT test account)
+      // Test accounts use their initialized test data, not Supabase data
+      if (user.shopId && isValidUUID(user.shopId) && isOnline() && !isTestShop) {
         try {
           console.log('🔄 Reloading fresh shop data after login...');
           const freshShopData = await db.loadAllShopData(user.shopId);
@@ -675,6 +768,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             users: freshShopData.users || [],
             products: freshShopData.products || [],
             categories: freshShopData.categories || [],
+            expenseCategories: freshShopData.expenseCategories || [],
+            expenseTemplates: freshShopData.expenseTemplates || [],
             suppliers: freshShopData.suppliers || [],
             expenses: freshShopData.expenses || [],
             sales: freshShopData.sales || [],
@@ -701,7 +796,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }));
         }
       } else {
-        // Offline or no valid shopId - just set user
+        // Offline, no valid shopId, or test account - just set user
+        // For test accounts, the test shop data is already initialized, just set the user
         setState(prev => ({ 
           ...prev, 
           currentUser: updatedUser,
@@ -709,6 +805,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ? prev.users.map(u => u.id === user!.id ? updatedUser : u)
             : [...prev.users, updatedUser]
         }));
+        
+        if (isTestShop) {
+          console.log('🧪 Test account login - using initialized test shop data');
+        }
       }
       
       // Update last login in Supabase
@@ -778,6 +878,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         users: [newUser],
         products: [],
         categories: categoriesWithShopId,
+        expenseCategories: [],
+        expenseTemplates: [],
         suppliers: [],
         expenses: [],
         sales: [],
@@ -1684,6 +1786,88 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Expense Template Management
+  const addExpenseTemplate = async (template: ExpenseTemplate) => {
+    const templateWithShop = {
+      ...template,
+      shopId: template.shopId || state.settings?.shopId || '',
+      createdAt: template.createdAt || new Date().toISOString()
+    };
+    
+    setState(prev => ({ 
+      ...prev, 
+      expenseTemplates: [...(prev.expenseTemplates || []), templateWithShop] 
+    }));
+    logActivity('ADD_EXPENSE_TEMPLATE', `Created expense template: ${template.name}`);
+    
+    // Sync to Supabase or queue for later
+    if (templateWithShop.shopId && isValidUUID(templateWithShop.shopId)) {
+      if (canSyncToSupabase()) {
+        try {
+          await db.createExpenseTemplate(templateWithShop);
+          console.log('✅ Expense template synced to Supabase:', templateWithShop.name);
+        } catch (err: any) {
+          console.error('❌ Failed to sync expense template to Supabase:', err);
+          queueOperation('CREATE_EXPENSE_TEMPLATE', templateWithShop, templateWithShop.id);
+        }
+      } else {
+        queueOperation('CREATE_EXPENSE_TEMPLATE', templateWithShop, templateWithShop.id);
+      }
+    } else {
+      console.warn('⚠️ Cannot sync expense template: invalid shopId', templateWithShop.shopId);
+    }
+  };
+
+  const editExpenseTemplate = async (template: ExpenseTemplate) => {
+    const templateWithShop = {
+      ...template,
+      shopId: template.shopId || state.settings?.shopId || '',
+      updatedAt: new Date().toISOString()
+    };
+    
+    setState(prev => ({
+      ...prev,
+      expenseTemplates: (prev.expenseTemplates || []).map(t => 
+        t.id === template.id ? templateWithShop : t
+      )
+    }));
+    logActivity('EDIT_EXPENSE_TEMPLATE', `Updated expense template: ${template.name}`);
+    
+    // Sync to Supabase or queue for later
+    if (isValidUUID(state.settings?.shopId || '')) {
+      if (canSyncToSupabase()) {
+        db.updateExpenseTemplate(template.id, templateWithShop).catch(err => {
+          console.error('Failed to sync expense template update:', err);
+          queueOperation('UPDATE_EXPENSE_TEMPLATE', templateWithShop, template.id);
+        });
+      } else {
+        queueOperation('UPDATE_EXPENSE_TEMPLATE', templateWithShop, template.id);
+      }
+    }
+  };
+
+  const deleteExpenseTemplate = async (id: string) => {
+    setState(prev => ({
+      ...prev,
+      expenseTemplates: (prev.expenseTemplates || []).map(t => 
+        t.id === id ? { ...t, isArchived: true } : t
+      )
+    }));
+    logActivity('DELETE_EXPENSE_TEMPLATE', `Archived expense template ID: ${id}`);
+    
+    // Sync to Supabase or queue for later
+    if (isValidUUID(state.settings?.shopId || '')) {
+      if (canSyncToSupabase()) {
+        db.updateExpenseTemplate(id, { isArchived: true }).catch(err => {
+          console.error('Failed to sync expense template deletion:', err);
+          queueOperation('UPDATE_EXPENSE_TEMPLATE', { isArchived: true }, id);
+        });
+      } else {
+        queueOperation('UPDATE_EXPENSE_TEMPLATE', { isArchived: true }, id);
+      }
+    }
+  };
+
   // User Management
   const addUser = (user: User): boolean => {
     if (state.users.some(u => u.username === user.username)) return false;
@@ -2125,6 +2309,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             users: shopData.users.length > 0 ? shopData.users : prev.users,
             products: shopData.products.length > 0 ? shopData.products : prev.products,
             categories: shopData.categories.length > 0 ? shopData.categories : prev.categories,
+            expenseCategories: shopData.expenseCategories?.length > 0 ? shopData.expenseCategories : (prev.expenseCategories || []),
+            expenseTemplates: shopData.expenseTemplates?.length > 0 ? shopData.expenseTemplates : (prev.expenseTemplates || []),
             suppliers: shopData.suppliers.length > 0 ? shopData.suppliers : prev.suppliers,
             expenses: shopData.expenses.length > 0 ? shopData.expenses : prev.expenses,
             sales: shopData.sales.length > 0 ? shopData.sales : prev.sales,
@@ -2221,6 +2407,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addExpense,
       deleteExpense,
       addExpenseCategory,
+      addExpenseTemplate,
+      editExpenseTemplate,
+      deleteExpenseTemplate,
       t,
       hasPermission,
       addUser,

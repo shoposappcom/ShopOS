@@ -98,6 +98,18 @@ export interface Expense {
   isArchived?: boolean;
 }
 
+export interface ExpenseTemplate {
+  id: string;
+  shopId: string; // Foreign Key: shopId → ShopSettings.shopId
+  name: string; // Template name (e.g., "Daily Rent", "Monthly Utilities")
+  description: string; // Default description for expenses created from this template
+  amount: number; // Default amount
+  category: string; // Default category
+  createdAt: string; // ISO date
+  updatedAt?: string; // ISO date
+  isArchived?: boolean;
+}
+
 export interface StockMovement {
   id: string;
   shopId: string; // Foreign Key: shopId → ShopSettings.shopId
@@ -335,6 +347,7 @@ export interface AppState {
   products: Product[];
   categories: Category[];
   expenseCategories: ExpenseCategory[]; // Expense categories
+  expenseTemplates: ExpenseTemplate[]; // Expense templates for recurring/planned expenses
   suppliers: Supplier[]; // New table
   expenses: Expense[];   // New table
   sales: Sale[];
