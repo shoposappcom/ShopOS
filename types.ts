@@ -162,6 +162,7 @@ export interface CartItem extends Product {
   quantityType: 'carton' | 'unit';
   quantity: number;
   subtotal: number;
+  customPrice?: number; // Optional custom price override (per unit or per carton)
 }
 
 export interface Sale {

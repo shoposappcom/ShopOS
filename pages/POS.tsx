@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Product, CartItem, Sale, Customer } from '../types';
 import { PAYMENT_METHODS } from '../constants';
-import { Plus, Minus, Trash2, Search, ScanLine, ShoppingCart, Check, X, Package, Printer, Lock, Mic, MicOff, Calendar, Gift, Ticket, Layers, UserPlus, Download } from 'lucide-react';
+import { Plus, Minus, Trash2, Search, ScanLine, ShoppingCart, Check, X, Package, Printer, Lock, Mic, MicOff, Calendar, Gift, Ticket, UserPlus, Download } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { BarcodeScanner } from '../components/BarcodeScanner';
 import { ViewToggle } from '../components/ViewToggle';
@@ -17,7 +17,6 @@ export const POS: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('all');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [mode, setMode] = useState<'scan' | 'list'>('list');
-  const [scanning, setScanning] = useState(false);
   const [isListening, setIsListening] = useState(false);
   
   // View Mode State
@@ -59,6 +58,8 @@ export const POS: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [addQty, setAddQty] = useState(1);
   const [addType, setAddType] = useState<'carton' | 'unit'>('unit');
+  const [useCustomPrice, setUseCustomPrice] = useState(false);
+  const [customPrice, setCustomPrice] = useState<number | ''>('');
   
   const [showManagerApproval, setShowManagerApproval] = useState(false);
   const [managerPin, setManagerPin] = useState('');
@@ -130,10 +131,18 @@ export const POS: React.FC = () => {
     setSelectedProduct(product);
     setAddQty(1);
     setAddType('unit');
+    setUseCustomPrice(false);
+    setCustomPrice('');
   };
 
   const confirmAddToCart = () => {
     if (!selectedProduct) return;
+    
+    // Validate custom price if using it
+    if (useCustomPrice && (customPrice === '' || Number(customPrice) <= 0)) {
+      alert('Please enter a valid custom price');
+      return;
+    }
     
     // Check Stock
     const availableTotal = selectedProduct.totalUnits;
@@ -148,16 +157,27 @@ export const POS: React.FC = () => {
       return;
     }
 
+    // Determine the price to use
+    const pricePerItem = useCustomPrice && customPrice !== '' 
+      ? Number(customPrice)
+      : (addType === 'carton' ? selectedProduct.cartonPrice : selectedProduct.unitPrice);
+    
+    const calculatedSubtotal = addQty * pricePerItem;
+
     setCart(prev => {
-      // Check if exact item exists (same id AND same type)
-      const existing = prev.find(i => i.id === selectedProduct.id && i.quantityType === addType);
+      // Check if exact item exists (same id, same type, and same custom price if applicable)
+      const existing = prev.find(i => 
+        i.id === selectedProduct.id && 
+        i.quantityType === addType &&
+        (useCustomPrice ? i.customPrice === pricePerItem : !i.customPrice)
+      );
       
       if (existing) {
          return prev.map(i => i.cartId === existing.cartId 
            ? { 
                ...i, 
                quantity: i.quantity + addQty, 
-               subtotal: (i.quantity + addQty) * (addType === 'carton' ? i.cartonPrice : i.unitPrice) 
+               subtotal: (i.quantity + addQty) * pricePerItem
              }
            : i
          );
@@ -168,11 +188,14 @@ export const POS: React.FC = () => {
         cartId: Math.random().toString(36),
         quantityType: addType,
         quantity: addQty,
-        subtotal: addQty * (addType === 'carton' ? selectedProduct.cartonPrice : selectedProduct.unitPrice)
+        subtotal: calculatedSubtotal,
+        customPrice: useCustomPrice && customPrice !== '' ? pricePerItem : undefined
       }];
     });
     
     setSelectedProduct(null);
+    setUseCustomPrice(false);
+    setCustomPrice('');
   };
 
   const removeFromCart = (cartId: string) => {
@@ -866,7 +889,10 @@ export const POS: React.FC = () => {
 
           {/* Cart Items - Flexible height */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 pb-24">
-             {cart.map(item => (
+             {cart.map(item => {
+               const pricePerItem = item.customPrice ?? (item.quantityType === 'carton' ? item.cartonPrice : item.unitPrice);
+               const isCustomPrice = item.customPrice !== undefined;
+               return (
                <div key={item.cartId} className="flex justify-between items-center bg-white border border-gray-100 p-3 rounded-xl shadow-sm">
                  <div className="flex-1">
                    <h4 className="font-semibold text-sm text-gray-800 line-clamp-1">{item.name}</h4>
@@ -875,7 +901,17 @@ export const POS: React.FC = () => {
                        {t(item.quantityType)}
                      </span>
                      <span className="text-xs text-gray-500">x{item.quantity}</span>
+                     {isCustomPrice && (
+                       <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-purple-100 text-purple-700" title={`Custom price: ${settings.currency}${item.customPrice}`}>
+                         Custom
+                       </span>
+                     )}
                    </div>
+                   {isCustomPrice && (
+                     <div className="text-xs text-purple-600 mt-1">
+                       {settings.currency}{item.customPrice} per {item.quantityType}
+                     </div>
+                   )}
                  </div>
                  <div className="flex items-center gap-3">
                    <span className="font-bold text-gray-800 text-sm">{settings.currency}{item.subtotal.toLocaleString()}</span>
@@ -884,7 +920,7 @@ export const POS: React.FC = () => {
                    </button>
                  </div>
                </div>
-             ))}
+             )})}
              {cart.length === 0 && (
                <div className="flex flex-col items-center justify-center h-48 text-gray-400">
                  <ShoppingCart className="w-12 h-12 mb-3 opacity-20" />
@@ -1037,7 +1073,7 @@ export const POS: React.FC = () => {
                  </button>
               </div>
 
-              <div className="flex items-center justify-center gap-6 mb-8">
+              <div className="flex items-center justify-center gap-6 mb-6">
                  <button onClick={() => setAddQty(Math.max(1, addQty - 1))} className="w-12 h-12 rounded-full border-2 border-gray-200 flex items-center justify-center text-gray-400 hover:border-green-500 hover:text-green-500 transition-colors">
                     <Minus className="w-6 h-6" />
                  </button>
@@ -1047,9 +1083,47 @@ export const POS: React.FC = () => {
                  </button>
               </div>
 
+              {/* Custom Price Option */}
+              <div className="mb-6 space-y-3">
+                 <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                       type="checkbox"
+                       checked={useCustomPrice}
+                       onChange={(e) => {
+                          setUseCustomPrice(e.target.checked);
+                          if (!e.target.checked) setCustomPrice('');
+                       }}
+                       className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Use Custom Price</span>
+                 </label>
+                 
+                 {useCustomPrice && (
+                    <div>
+                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Custom Price ({settings.currency})</label>
+                       <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/20 text-gray-900 font-semibold text-lg"
+                          value={customPrice}
+                          onChange={(e) => setCustomPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder={`${addType === 'carton' ? selectedProduct.cartonPrice : selectedProduct.unitPrice}`}
+                          autoFocus
+                       />
+                    </div>
+                 )}
+              </div>
+
               <div className="flex gap-3">
                  <Button className="flex-1 py-3 text-lg" onClick={confirmAddToCart}>
-                    Add {settings.currency}{(addQty * (addType === 'carton' ? selectedProduct.cartonPrice : selectedProduct.unitPrice)).toLocaleString()}
+                    Add {settings.currency}{(
+                       addQty * (
+                          useCustomPrice && customPrice !== '' 
+                            ? Number(customPrice) 
+                            : (addType === 'carton' ? selectedProduct.cartonPrice : selectedProduct.unitPrice)
+                       )
+                    ).toLocaleString()}
                  </Button>
                  <Button variant="outline" className="py-3 px-4" onClick={() => setSelectedProduct(null)}>
                     <X className="w-6 h-6" />
