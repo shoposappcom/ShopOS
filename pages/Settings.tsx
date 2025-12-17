@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Button } from '../components/ui/Button';
 import { User, UserRole, Language, ShopSettings, Category, Supplier, Expense, ExpenseCategory, ExpenseTemplate } from '../types';
-import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight, Package, RotateCcw } from 'lucide-react';
+import { User as UserIcon, Shield, Power, Trash2, Edit, Plus, Users, Sparkles, FileText, Clock, Store, Layers, Truck, Receipt, Search, Filter, Archive, ChevronLeft, ChevronRight, Package, RotateCcw, GripVertical, Calendar, TrendingDown, X } from 'lucide-react';
 import { generateUUID } from '../services/supabase/client';
 import { LanguageSelector } from '../components/LanguageSelector';
 
@@ -33,6 +33,15 @@ export const Settings: React.FC = () => {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<ExpenseTemplate> | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [draggedExpense, setDraggedExpense] = useState<Expense | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
+  // Expense Filtering State
+  const [expenseDateFilter, setExpenseDateFilter] = useState<'today' | 'week' | 'month' | 'custom' | 'all'>('all');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [showCustomDateRange, setShowCustomDateRange] = useState(false);
 
   // Business Settings State
   const [bizForm, setBizForm] = useState<Partial<ShopSettings>>({});
@@ -70,9 +79,77 @@ export const Settings: React.FC = () => {
   // Filter archived data (after shopId filtering)
   const filteredCategories = shopCategories.filter(c => !c.isArchived);
   const filteredSuppliers = shopSuppliers.filter(s => !s.isArchived);
-  const filteredExpenses = shopExpenses.filter(e => !e.isArchived);
+  const baseFilteredExpenses = shopExpenses.filter(e => !e.isArchived);
   const filteredExpenseTemplates = shopExpenseTemplates.filter(t => !t.isArchived);
   const archivedProducts = shopProducts.filter(p => p.isArchived);
+
+  // Date range calculation for expense filtering
+  const getExpenseDateRange = () => {
+    const now = new Date();
+    const start = new Date();
+    const end = new Date();
+
+    if (expenseDateFilter === 'custom' && customStartDate && customEndDate) {
+      start.setTime(new Date(customStartDate).getTime());
+      end.setTime(new Date(customEndDate).getTime());
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    if (expenseDateFilter === 'today') {
+      // Already set to today
+    } else if (expenseDateFilter === 'week') {
+      const day = start.getDay();
+      start.setDate(start.getDate() - day); // Start of week (Sunday)
+    } else if (expenseDateFilter === 'month') {
+      start.setDate(1); // First day of month
+    } else if (expenseDateFilter === 'all') {
+      start.setTime(0); // Beginning of time
+      end.setTime(Date.now() + 86400000); // Future date
+    }
+
+    return { start, end };
+  };
+
+  // Filter expenses by date and category
+  const filteredExpenses = useMemo(() => {
+    let filtered = [...baseFilteredExpenses];
+
+    // Apply date filter
+    if (expenseDateFilter !== 'all') {
+      const { start, end } = getExpenseDateRange();
+      filtered = filtered.filter(exp => {
+        const expDate = new Date(exp.date);
+        return expDate >= start && expDate <= end;
+      });
+    }
+
+    // Apply category filter
+    if (expenseCategoryFilter !== 'all') {
+      filtered = filtered.filter(exp => exp.category === expenseCategoryFilter);
+    }
+
+    // Sort by date (newest first)
+    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [baseFilteredExpenses, expenseDateFilter, expenseCategoryFilter, customStartDate, customEndDate]);
+
+  // Calculate expense statistics
+  const expenseStats = useMemo(() => {
+    const total = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const count = filteredExpenses.length;
+    const avg = count > 0 ? total / count : 0;
+    
+    // Group by category
+    const byCategory = filteredExpenses.reduce((acc, exp) => {
+      acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return { total, count, avg, byCategory };
+  }, [filteredExpenses]);
 
   const handleSaveUser = () => {
     if (!editingUser?.username || !editingUser?.fullName || !editingUser?.role) return;
@@ -193,6 +270,7 @@ export const Settings: React.FC = () => {
      }
      setShowTemplateModal(false);
      setEditingTemplate(null);
+     setDraggedExpense(null);
   };
 
   const handleUseTemplate = (template: ExpenseTemplate) => {
@@ -204,6 +282,51 @@ export const Settings: React.FC = () => {
         date: new Date().toISOString()
      });
      setShowExpModal(true);
+  };
+
+  const handleDragStart = (e: React.DragEvent, expense: Expense) => {
+     setDraggedExpense(expense);
+     e.dataTransfer.effectAllowed = 'move';
+     e.dataTransfer.setData('text/plain', expense.id);
+     // Add visual feedback
+     if (e.currentTarget instanceof HTMLElement) {
+        e.currentTarget.style.opacity = '0.5';
+     }
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+     setDraggedExpense(null);
+     if (e.currentTarget instanceof HTMLElement) {
+        e.currentTarget.style.opacity = '1';
+     }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+     e.preventDefault();
+     e.dataTransfer.dropEffect = 'move';
+     setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+     e.preventDefault();
+     setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+     e.preventDefault();
+     setIsDraggingOver(false);
+     
+     if (draggedExpense) {
+        // Open template modal with expense data pre-filled
+        setEditingTemplate({
+           name: draggedExpense.description, // Use description as default name
+           description: draggedExpense.description,
+           amount: draggedExpense.amount,
+           category: draggedExpense.category
+        });
+        setShowTemplateModal(true);
+        setDraggedExpense(null);
+     }
   };
 
   // Default expense categories
@@ -517,93 +640,343 @@ export const Settings: React.FC = () => {
                          <Plus className="w-4 h-4 mr-1" /> Add Template
                       </Button>
                    </div>
-                   {filteredExpenseTemplates.length === 0 ? (
-                      <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-8 text-center">
-                         <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                         <p className="text-gray-400 font-medium">No expense templates</p>
-                         <p className="text-sm text-gray-400 mt-1">Create templates for quick expense entry</p>
-                      </div>
-                   ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                         {filteredExpenseTemplates.map(template => (
-                            <div key={template.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                               <div className="flex justify-between items-start mb-2">
-                                  <div className="flex-1">
-                                     <h4 className="font-bold text-gray-800">{template.name}</h4>
-                                     <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                                  </div>
-                                  <div className="flex gap-2 ml-2">
-                                     <button 
-                                        onClick={() => handleUseTemplate(template)}
-                                        className="p-2 hover:bg-green-50 rounded-lg text-green-600"
-                                        title="Use Template"
-                                     >
-                                        <Plus className="w-4 h-4" />
-                                     </button>
-                                     <button 
-                                        onClick={() => { setEditingTemplate(template); setShowTemplateModal(true); }}
-                                        className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
-                                        title="Edit Template"
-                                     >
-                                        <Edit className="w-4 h-4" />
-                                     </button>
-                                     <button 
-                                        onClick={() => deleteExpenseTemplate(template.id)}
-                                        className="p-2 hover:bg-red-50 rounded-lg text-red-500"
-                                        title="Delete Template"
-                                     >
-                                        <Trash2 className="w-4 h-4" />
-                                     </button>
-                                  </div>
+                   <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`rounded-xl border-2 border-dashed transition-all ${
+                         isDraggingOver 
+                           ? 'border-green-500 bg-green-50 scale-105' 
+                           : 'border-gray-200 bg-gray-50'
+                      }`}
+                   >
+                      {filteredExpenseTemplates.length === 0 ? (
+                         <div className={`p-8 text-center ${isDraggingOver ? 'text-green-600' : ''}`}>
+                            <Receipt className={`w-12 h-12 mx-auto mb-3 ${isDraggingOver ? 'text-green-500' : 'text-gray-300'}`} />
+                            <p className={`font-medium ${isDraggingOver ? 'text-green-600' : 'text-gray-400'}`}>
+                               {isDraggingOver ? 'Drop expense here to create template' : 'No expense templates'}
+                            </p>
+                            <p className="text-sm text-gray-400 mt-1">
+                               {isDraggingOver ? 'Release to create template' : 'Drag an expense here or create manually'}
+                            </p>
+                         </div>
+                      ) : (
+                         <div className="p-4">
+                            {isDraggingOver && (
+                               <div className="mb-4 p-3 bg-green-100 border border-green-300 rounded-lg text-center">
+                                  <p className="text-sm font-medium text-green-700">Drop expense here to create a new template</p>
                                </div>
-                               <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                                  <span className="text-xs text-gray-500">{template.category}</span>
-                                  <span className="font-bold text-red-600">₦{template.amount.toLocaleString()}</span>
-                               </div>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                               {filteredExpenseTemplates.map(template => (
+                                  <div key={template.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                     <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                           <h4 className="font-bold text-gray-800">{template.name}</h4>
+                                           <p className="text-sm text-gray-600 mt-1">{template.description}</p>
+                                        </div>
+                                        <div className="flex gap-2 ml-2">
+                                           <button 
+                                              onClick={() => handleUseTemplate(template)}
+                                              className="p-2 hover:bg-green-50 rounded-lg text-green-600"
+                                              title="Use Template"
+                                           >
+                                              <Plus className="w-4 h-4" />
+                                           </button>
+                                           <button 
+                                              onClick={() => { setEditingTemplate(template); setShowTemplateModal(true); }}
+                                              className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                                              title="Edit Template"
+                                           >
+                                              <Edit className="w-4 h-4" />
+                                           </button>
+                                           <button 
+                                              onClick={() => deleteExpenseTemplate(template.id)}
+                                              className="p-2 hover:bg-red-50 rounded-lg text-red-500"
+                                              title="Delete Template"
+                                           >
+                                              <Trash2 className="w-4 h-4" />
+                                           </button>
+                                        </div>
+                                     </div>
+                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                        <span className="text-xs text-gray-500">{template.category}</span>
+                                        <span className="font-bold text-red-600">₦{template.amount.toLocaleString()}</span>
+                                     </div>
+                                  </div>
+                               ))}
                             </div>
-                         ))}
-                      </div>
-                   )}
+                         </div>
+                      )}
+                   </div>
                 </div>
 
                 {/* Expenses List Section */}
                 <div className="space-y-4">
-                   <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-bold text-gray-800">{t('manageExpenses')}</h3>
+                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div>
+                         <h3 className="text-lg font-bold text-gray-800">{t('manageExpenses')}</h3>
+                         <p className="text-sm text-gray-500">Track and analyze your expenses</p>
+                      </div>
                       <Button size="sm" onClick={() => { setEditingExp({}); setSelectedTemplateId(null); setShowExpModal(true); }}>
                          <Plus className="w-4 h-4 mr-1" /> {t('addExpense')}
                       </Button>
                    </div>
+
+                   {/* Expense Statistics */}
+                   {filteredExpenses.length > 0 && (
+                      <>
+                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200">
+                               <div className="flex items-center justify-between">
+                                  <div>
+                                     <p className="text-xs font-medium text-red-600 uppercase mb-1">Total Expenses</p>
+                                     <p className="text-2xl font-bold text-red-700">₦{expenseStats.total.toLocaleString()}</p>
+                                  </div>
+                                  <TrendingDown className="w-8 h-8 text-red-400" />
+                               </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                               <div className="flex items-center justify-between">
+                                  <div>
+                                     <p className="text-xs font-medium text-blue-600 uppercase mb-1">Number of Expenses</p>
+                                     <p className="text-2xl font-bold text-blue-700">{expenseStats.count}</p>
+                                  </div>
+                                  <Receipt className="w-8 h-8 text-blue-400" />
+                               </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                               <div className="flex items-center justify-between">
+                                  <div>
+                                     <p className="text-xs font-medium text-purple-600 uppercase mb-1">Average Expense</p>
+                                     <p className="text-2xl font-bold text-purple-700">₦{expenseStats.avg.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                  </div>
+                                  <FileText className="w-8 h-8 text-purple-400" />
+                               </div>
+                            </div>
+                         </div>
+
+                         {/* Category Breakdown */}
+                         {Object.keys(expenseStats.byCategory).length > 0 && (
+                            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                               <h4 className="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2">
+                                  <Filter className="w-4 h-4" />
+                                  Expenses by Category
+                               </h4>
+                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {Object.entries(expenseStats.byCategory)
+                                     .sort(([, a], [, b]) => b - a)
+                                     .map(([category, amount]) => {
+                                        const percentage = ((amount / expenseStats.total) * 100).toFixed(1);
+                                        return (
+                                           <button
+                                              key={category}
+                                              onClick={() => setExpenseCategoryFilter(category)}
+                                              className="text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all hover:border-green-300 hover:shadow-sm"
+                                           >
+                                              <div className="flex items-center justify-between mb-1">
+                                                 <span className="text-sm font-semibold text-gray-800">{category}</span>
+                                                 <span className="text-xs font-medium text-gray-500">{percentage}%</span>
+                                              </div>
+                                              <p className="text-lg font-bold text-red-600">₦{amount.toLocaleString()}</p>
+                                              <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                                 <div 
+                                                    className="h-full bg-red-500 rounded-full transition-all"
+                                                    style={{ width: `${percentage}%` }}
+                                                 />
+                                              </div>
+                                           </button>
+                                        );
+                                     })}
+                               </div>
+                            </div>
+                         )}
+                      </>
+                   )}
+
+                   {/* Filters */}
+                   <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                      <div className="flex flex-col sm:flex-row gap-4">
+                         {/* Date Filter */}
+                         <div className="flex-1">
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Date Range</label>
+                            <div className="flex gap-2">
+                               <select 
+                                  className="flex-1 bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium"
+                                  value={expenseDateFilter}
+                                  onChange={(e) => {
+                                     const value = e.target.value as typeof expenseDateFilter;
+                                     setExpenseDateFilter(value);
+                                     if (value === 'custom') {
+                                        setShowCustomDateRange(true);
+                                     } else {
+                                        setShowCustomDateRange(false);
+                                     }
+                                  }}
+                               >
+                                  <option value="all">All Time</option>
+                                  <option value="today">Today</option>
+                                  <option value="week">This Week</option>
+                                  <option value="month">This Month</option>
+                                  <option value="custom">Custom Range</option>
+                               </select>
+                               {expenseDateFilter === 'custom' && (
+                                  <div className="flex gap-2 flex-1">
+                                     <input
+                                        type="date"
+                                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        placeholder="Start Date"
+                                     />
+                                     <input
+                                        type="date"
+                                        className="flex-1 bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        placeholder="End Date"
+                                     />
+                                     {(customStartDate || customEndDate) && (
+                                        <button
+                                           onClick={() => {
+                                              setCustomStartDate('');
+                                              setCustomEndDate('');
+                                              setExpenseDateFilter('all');
+                                              setShowCustomDateRange(false);
+                                           }}
+                                           className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+                                           title="Clear date filter"
+                                        >
+                                           <X className="w-4 h-4" />
+                                        </button>
+                                     )}
+                                  </div>
+                               )}
+                            </div>
+                         </div>
+
+                         {/* Category Filter */}
+                         <div className="flex-1">
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Category</label>
+                            <div className="flex gap-2">
+                               <select 
+                                  className="flex-1 bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 text-sm font-medium"
+                                  value={expenseCategoryFilter}
+                                  onChange={(e) => setExpenseCategoryFilter(e.target.value)}
+                               >
+                                  <option value="all">All Categories</option>
+                                  {allExpenseCategories.map(cat => (
+                                     <option key={cat} value={cat}>{cat}</option>
+                                  ))}
+                               </select>
+                               {expenseCategoryFilter !== 'all' && (
+                                  <button
+                                     onClick={() => setExpenseCategoryFilter('all')}
+                                     className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+                                     title="Clear category filter"
+                                  >
+                                     <X className="w-4 h-4" />
+                                  </button>
+                               )}
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* Active Filters Display */}
+                      {(expenseDateFilter !== 'all' || expenseCategoryFilter !== 'all') && (
+                         <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+                            <span className="text-xs text-gray-500">Active filters:</span>
+                            {expenseDateFilter !== 'all' && (
+                               <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                                  {expenseDateFilter === 'custom' 
+                                     ? `Custom: ${customStartDate ? new Date(customStartDate).toLocaleDateString() : '...'} - ${customEndDate ? new Date(customEndDate).toLocaleDateString() : '...'}`
+                                     : expenseDateFilter.charAt(0).toUpperCase() + expenseDateFilter.slice(1)}
+                                  <button onClick={() => setExpenseDateFilter('all')} className="hover:text-blue-900">
+                                     <X className="w-3 h-3" />
+                                  </button>
+                               </span>
+                            )}
+                            {expenseCategoryFilter !== 'all' && (
+                               <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                                  Category: {expenseCategoryFilter}
+                                  <button onClick={() => setExpenseCategoryFilter('all')} className="hover:text-green-900">
+                                     <X className="w-3 h-3" />
+                                  </button>
+                               </span>
+                            )}
+                         </div>
+                      )}
+                   </div>
+
+                   {/* Expenses Table */}
                    {filteredExpenses.length === 0 ? (
                       <div className="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-8 text-center">
                          <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                         <p className="text-gray-400 font-medium">No expenses recorded</p>
-                         <p className="text-sm text-gray-400 mt-1">Add expenses manually or use a template</p>
+                         <p className="text-gray-400 font-medium">No expenses found</p>
+                         <p className="text-sm text-gray-400 mt-1">
+                            {expenseDateFilter !== 'all' || expenseCategoryFilter !== 'all' 
+                               ? 'Try adjusting your filters' 
+                               : 'Add expenses manually or use a template'}
+                         </p>
                       </div>
                    ) : (
                       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                         <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 font-medium">
-                               <tr>
-                                  <th className="p-3">{t('description')}</th>
-                                  <th className="p-3">{t('category')}</th>
-                                  <th className="p-3">{t('amount')}</th>
-                                  <th className="p-3">Action</th>
-                               </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                               {filteredExpenses.map(exp => (
-                                  <tr key={exp.id}>
-                                     <td className="p-3 font-medium text-gray-800">{exp.description}</td>
-                                     <td className="p-3 text-gray-500">{exp.category}</td>
-                                     <td className="p-3 font-bold text-red-600">₦{exp.amount.toLocaleString()}</td>
-                                     <td className="p-3">
-                                        <button onClick={() => deleteExpense(exp.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
-                                     </td>
+                         <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                               <thead className="bg-gray-50 text-gray-500 font-medium">
+                                  <tr>
+                                     <th className="p-3 w-8"></th>
+                                     <th className="p-3">Date</th>
+                                     <th className="p-3">{t('description')}</th>
+                                     <th className="p-3">{t('category')}</th>
+                                     <th className="p-3 text-right">{t('amount')}</th>
+                                     <th className="p-3 text-center">Action</th>
                                   </tr>
-                               ))}
-                            </tbody>
-                         </table>
+                               </thead>
+                               <tbody className="divide-y divide-gray-100">
+                                  {filteredExpenses.map(exp => (
+                                     <tr 
+                                        key={exp.id}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, exp)}
+                                        onDragEnd={handleDragEnd}
+                                        className="cursor-move hover:bg-gray-50 transition-colors group"
+                                        title="Drag to templates section to create a template"
+                                     >
+                                        <td className="p-3 text-gray-400 group-hover:text-gray-600">
+                                           <GripVertical className="w-4 h-4" />
+                                        </td>
+                                        <td className="p-3 text-gray-600">
+                                           {new Date(exp.date).toLocaleDateString('en-US', { 
+                                              month: 'short', 
+                                              day: 'numeric', 
+                                              year: 'numeric' 
+                                           })}
+                                        </td>
+                                        <td className="p-3 font-medium text-gray-800">{exp.description}</td>
+                                        <td className="p-3">
+                                           <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                                              {exp.category}
+                                           </span>
+                                        </td>
+                                        <td className="p-3 text-right font-bold text-red-600">₦{exp.amount.toLocaleString()}</td>
+                                        <td className="p-3 text-center">
+                                           <button onClick={() => deleteExpense(exp.id)} className="text-red-500 hover:text-red-700 transition-colors">
+                                              <Trash2 className="w-4 h-4" />
+                                           </button>
+                                        </td>
+                                     </tr>
+                                  ))}
+                               </tbody>
+                               <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                  <tr>
+                                     <td colSpan={4} className="p-3 font-bold text-gray-700 text-right">Total:</td>
+                                     <td className="p-3 text-right font-bold text-red-600 text-lg">₦{expenseStats.total.toLocaleString()}</td>
+                                     <td></td>
+                                  </tr>
+                               </tfoot>
+                            </table>
+                         </div>
                       </div>
                    )}
                 </div>
@@ -995,12 +1368,20 @@ export const Settings: React.FC = () => {
          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl">
                <h3 className="text-lg font-bold text-gray-800 mb-4">{editingTemplate?.id ? 'Edit Template' : 'Create Expense Template'}</h3>
+               {draggedExpense && !editingTemplate?.id && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                     <p className="text-sm text-green-700">
+                        <strong>Template from expense:</strong> Pre-filled from "{draggedExpense.description}". You can edit all fields including the price.
+                     </p>
+                  </div>
+               )}
                <div className="space-y-3">
                   <input 
                      className={inputClass} 
                      placeholder="Template Name (e.g., Daily Rent, Monthly Utilities)" 
                      value={editingTemplate?.name || ''} 
                      onChange={e => setEditingTemplate({...editingTemplate, name: e.target.value})} 
+                     autoFocus
                   />
                   <input 
                      className={inputClass} 
@@ -1030,7 +1411,7 @@ export const Settings: React.FC = () => {
                </div>
                <div className="flex gap-3 mt-6">
                   <Button className="flex-1" onClick={handleSaveTemplate}>{t('save')}</Button>
-                  <Button variant="outline" className="flex-1" onClick={() => setShowTemplateModal(false)}>{t('cancel')}</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => { setShowTemplateModal(false); setDraggedExpense(null); }}>{t('cancel')}</Button>
                </div>
             </div>
          </div>
