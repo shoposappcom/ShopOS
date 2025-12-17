@@ -89,7 +89,15 @@ export const Inventory: React.FC = () => {
 
   const handleOpenEdit = (product: Product) => {
     setEditingProduct(product);
-    setFormData(product);
+    // Ensure stockCartons and stockUnits are calculated from totalUnits if not set
+    const unitsPerCarton = product.unitsPerCarton || 1;
+    const stockCartons = product.stockCartons ?? Math.floor((product.totalUnits || 0) / unitsPerCarton);
+    const stockUnits = product.stockUnits ?? ((product.totalUnits || 0) % unitsPerCarton);
+    setFormData({
+      ...product,
+      stockCartons,
+      stockUnits
+    });
     setImagePreview(product.image || '');
     setUploadedImageFile(null);
     setShowModal(true);
@@ -203,9 +211,7 @@ export const Inventory: React.FC = () => {
       stockUnits: Number(formData.stockUnits) || 0,
       minStockLevel: Number(formData.minStockLevel) || 10,
       
-      totalUnits: editingProduct 
-        ? editingProduct.totalUnits 
-        : (Number(formData.stockCartons) || 0) * unitsPerCarton + (Number(formData.stockUnits) || 0),
+      totalUnits: (Number(formData.stockCartons) || 0) * unitsPerCarton + (Number(formData.stockUnits) || 0),
 
       batchNumber: formData.batchNumber,
       expiryDate: formData.expiryDate,
@@ -229,7 +235,9 @@ export const Inventory: React.FC = () => {
   };
 
   const handleRestockSubmit = () => {
-    updateStock(restockData.id, restockData.cartons, 'carton', { batch: restockData.batch, expiry: restockData.expiry });
+    if (restockData.cartons > 0) {
+      updateStock(restockData.id, restockData.cartons, 'carton', { batch: restockData.batch, expiry: restockData.expiry });
+    }
     if (restockData.units > 0) {
       updateStock(restockData.id, restockData.units, 'unit', { batch: restockData.batch, expiry: restockData.expiry });
     }
@@ -343,7 +351,7 @@ export const Inventory: React.FC = () => {
   const inputClass = "w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-gray-700 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 sm:pb-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
            <h2 className="text-2xl font-bold text-gray-800">{t('stock')}</h2>
@@ -836,7 +844,7 @@ export const Inventory: React.FC = () => {
                 <div className="space-y-5">
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 pb-2">{t('stockAndTracking')}</h4>
                   
-                  {!editingProduct && (
+                  {!editingProduct ? (
                      <div className="grid grid-cols-2 gap-6 bg-blue-50/30 p-4 rounded-2xl border border-blue-100/50">
                         <div>
                            <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center">
@@ -860,6 +868,41 @@ export const Inventory: React.FC = () => {
                              type="number" 
                              className={inputClass}
                              value={formData.stockUnits || ''}
+                             onChange={e => setFormData({...formData, stockUnits: Number(e.target.value)})}
+                             placeholder="0"
+                           />
+                        </div>
+                     </div>
+                  ) : (
+                     <div className="grid grid-cols-2 gap-6 bg-blue-50/30 p-4 rounded-2xl border border-blue-100/50">
+                        <div>
+                           <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center">
+                             {t('carton')} (Current Stock)
+                             <InfoTooltip translationKey="addCartons" />
+                           </label>
+                           <input 
+                             type="number" 
+                             className={inputClass}
+                             value={formData.stockCartons ?? (editingProduct ? Math.floor((editingProduct.totalUnits || 0) / (editingProduct.unitsPerCarton || 1)) : 0)}
+                             onChange={e => {
+                               const cartons = Number(e.target.value) || 0;
+                               setFormData({
+                                 ...formData, 
+                                 stockCartons: cartons
+                               });
+                             }}
+                             placeholder="0"
+                           />
+                        </div>
+                        <div>
+                           <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex items-center">
+                             {t('unit')} (Current Stock)
+                             <InfoTooltip translationKey="addUnits" />
+                           </label>
+                           <input 
+                             type="number" 
+                             className={inputClass}
+                             value={formData.stockUnits ?? (editingProduct ? (editingProduct.totalUnits || 0) % (editingProduct.unitsPerCarton || 1) : 0)}
                              onChange={e => setFormData({...formData, stockUnits: Number(e.target.value)})}
                              placeholder="0"
                            />
