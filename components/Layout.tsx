@@ -32,6 +32,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange
           return hasPermission('process_sales') || hasPermission('view_reports');
         case 'stock':
           return hasPermission('manage_stock');
+        case 'stockSales':
+          return hasPermission('view_reports') || hasPermission('manage_stock');
         case 'debtors':
           return hasPermission('manage_debtors') || hasPermission('approve_credit');
         case 'giftCards':

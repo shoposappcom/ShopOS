@@ -335,14 +335,28 @@ export const Transactions: React.FC = () => {
                  <div className="border-t-2 border-b-2 border-dashed border-gray-200 py-4 space-y-4">
                     {viewingSale.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between items-start">
-                         <div className="flex gap-2">
-                            <span className="font-bold w-6 text-center">{item.quantity}</span>
-                            <div>
+                         <div className="flex gap-2 flex-1">
+                            <div className="flex flex-col items-center min-w-[50px]">
+                              <span className="font-bold text-lg text-gray-900">{item.quantity}</span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                                item.quantityType === 'carton' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {t(item.quantityType)}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
                                <p className="font-bold text-gray-800 uppercase">{item.name}</p>
-                               <p className="text-[10px] text-gray-500">{t(item.quantityType)} @ {settings.currency}{(item.quantityType === 'carton' ? item.cartonPrice : item.unitPrice).toLocaleString()}</p>
+                               <p className="text-[10px] text-gray-500 mt-0.5">
+                                 {t(item.quantityType)} @ {settings.currency}{(item.quantityType === 'carton' ? item.cartonPrice : item.unitPrice).toLocaleString()}
+                               </p>
+                               <p className="text-[9px] text-gray-400 mt-0.5">
+                                 Sold: {item.quantity} {item.quantityType === 'carton' ? t('carton') : t('unit')}{item.quantity !== 1 ? 's' : ''}
+                               </p>
                             </div>
                          </div>
-                         <p className="font-bold">{settings.currency}{item.subtotal.toLocaleString()}</p>
+                         <p className="font-bold text-gray-900 ml-2">{settings.currency}{item.subtotal.toLocaleString()}</p>
                       </div>
                     ))}
                  </div>

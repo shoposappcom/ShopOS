@@ -12,6 +12,7 @@ import { Debtors } from './pages/Debtors';
 import { Settings } from './pages/Settings';
 import { GiftCards } from './pages/GiftCards';
 import { Transactions } from './pages/Transactions';
+import { StockSales } from './pages/StockSales';
 import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
 import { AdminSetup } from './pages/AdminSetup';
@@ -210,6 +211,7 @@ const AppContent: React.FC = () => {
       case 'pos': return <POS />;
       case 'transactions': return <Transactions />;
       case 'stock': return <Inventory />;
+      case 'stockSales': return <StockSales />;
       case 'debtors': return <Debtors />;
       case 'giftCards': return <GiftCards />;
       case 'settings': return <Settings />;

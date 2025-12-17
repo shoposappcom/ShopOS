@@ -12,7 +12,8 @@ import {
   Smartphone,
   FileText,
   Gift,
-  History
+  History,
+  TrendingUp
 } from 'lucide-react';
 
 export const NAV_ITEMS = [
@@ -20,6 +21,7 @@ export const NAV_ITEMS = [
   { id: 'pos', labelKey: 'pos', icon: ShoppingCart },
   { id: 'transactions', labelKey: 'transactions', icon: History },
   { id: 'stock', labelKey: 'stock', icon: Package },
+  { id: 'stockSales', labelKey: 'stockSales', icon: TrendingUp },
   { id: 'debtors', labelKey: 'debtors', icon: Users },
   { id: 'giftCards', labelKey: 'giftCards', icon: Gift },
   { id: 'settings', labelKey: 'settings', icon: Settings },
@@ -108,7 +110,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [];
 
 export const TRANSLATIONS: Record<Language, Record<string, any>> = {
   en: {
-    dashboard: "Dashboard", pos: "POS", transactions: "Transactions", stock: "Stock", debtors: "Debtors", settings: "Settings", giftCards: "Gift Cards",
+    dashboard: "Dashboard", pos: "POS", transactions: "Transactions", stock: "Stock", stockSales: "Stock Sales", debtors: "Debtors", settings: "Settings", giftCards: "Gift Cards",
     welcome: "Welcome back", revenue: "Revenue", lowStock: "Low Stock", totalDebt: "Total Debt",
     salesTrends: "Sales Trends", bestSellers: "Best Sellers", categoryBreakdown: "Category Breakdown",
     searchProduct: "Search product...", allCategories: "All Categories", addProduct: "Add Product",
@@ -144,6 +146,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     exportSales: "Export Sales", exportInventory: "Export Inventory", exportDebtors: "Export Debtors",
     downloadCSV: "Download CSV", printPDF: "Print / PDF",
     today: "Today", yesterday: "Yesterday", thisWeek: "This Week", thisMonth: "This Month", thisYear: "This Year",
+    customRange: "Custom Range", unitsSold: "Units Sold", cartonsSold: "Cartons Sold", totalSold: "Total Sold", productSales: "Product Sales", noProductSales: "No product sales found for the selected date range",
     superadmin: "Super Admin", expired: "Expired", expiresIn: "Expires in", days: "days", expiryAlerts: "Expiry Alerts",
     actionExecuted: "Action Executed", aiHelp: "Shop Assistant", clearChat: "Clear Chat", applyAction: "Apply Action", aiPromptPlaceholder: "Ask me anything...",
     myPerformance: "My Performance",
@@ -187,7 +190,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     }
   },
   ha: {
-    dashboard: "Lissafi", pos: "Sayarwa", transactions: "Tarihin Ciniki", stock: "Kaya", debtors: "Masu Bashi", settings: "Saituna", giftCards: "Katin Kyauta",
+    dashboard: "Lissafi", pos: "Sayarwa", transactions: "Tarihin Ciniki", stock: "Kaya", stockSales: "Sayarwar Kaya", debtors: "Masu Bashi", settings: "Saituna", giftCards: "Katin Kyauta",
     welcome: "Barka da zuwa", revenue: "Kudin Shiga", lowStock: "Kaya sun yi kasa", totalDebt: "Jimlar Bashi",
     salesTrends: "Yanayin Kasuwa", bestSellers: "Masu Tafiya Sosai", categoryBreakdown: "Rabe-raben Kaya",
     searchProduct: "Nemi kaya...", allCategories: "Duk Rukunai", addProduct: "Saka Kaya",
@@ -223,6 +226,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     exportSales: "Fitar da Ciniki", exportInventory: "Fitar da Kaya", exportDebtors: "Fitar da Masu Bashi",
     downloadCSV: "Sauke CSV", printPDF: "Buga / PDF",
     today: "Yau", yesterday: "Jiya", thisWeek: "Wannan Mako", thisMonth: "Wannan Wata", thisYear: "Wannan Shekara",
+    customRange: "Zabi Kwanan Wata", unitsSold: "Guda da Aka Sayar", cartonsSold: "Kwali da Aka Sayar", totalSold: "Jimlar da Aka Sayar", productSales: "Sayarwar Kaya", noProductSales: "Babu sayarwar kaya a wannan lokaci",
     superadmin: "Babban Admin", expired: "Ya Lalace", expiresIn: "Zai lalace nan da", days: "kwana", expiryAlerts: "Kayan da zasu lalace",
     actionExecuted: "An aiwatar", aiHelp: "Mataimakin Shago", clearChat: "Goge Hira", applyAction: "Aiwatar", aiPromptPlaceholder: "Tambaye ni komai...",
     myPerformance: "Kokarina",
@@ -245,7 +249,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     }
   },
   yo: {
-    dashboard: "Ibi Iṣakoso", pos: "Tita", transactions: "Itan Tita", stock: "Ọja", debtors: "Awọn Onigbese", settings: "Eto", giftCards: "Kaadi Ẹbun",
+    dashboard: "Ibi Iṣakoso", pos: "Tita", transactions: "Itan Tita", stock: "Ọja", stockSales: "Tita Ọja", debtors: "Awọn Onigbese", settings: "Eto", giftCards: "Kaadi Ẹbun",
     welcome: "Kaabo", revenue: "Owo Ti A Ri", lowStock: "Ọja Ti lọ silẹ", totalDebt: "Gbese Lapapọ",
     salesTrends: "Aṣa Tita", bestSellers: "Awọn Ti A Ta Julọ", categoryBreakdown: "Ipin Ẹka",
     searchProduct: "Wa ọja...", allCategories: "Gbogbo Ẹka", addProduct: "Fi Ọja Kun",
@@ -281,6 +285,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     exportSales: "Firanṣẹ Tita", exportInventory: "Firanṣẹ Ọja", exportDebtors: "Firanṣẹ Awọn Onigbese",
     downloadCSV: "Gba CSV", printPDF: "Tẹjade / PDF",
     today: "Loni", yesterday: "Lana", thisWeek: "Ọsẹ Yii", thisMonth: "Oṣu Yii", thisYear: "Ọdun Yii",
+    customRange: "Yan Akoko", unitsSold: "Awọn Ẹyọ Ti A Ta", cartonsSold: "Awọn Paali Ti A Ta", totalSold: "Lapapọ Ti A Ta", productSales: "Tita Ọja", noProductSales: "Ko si tita ọja fun akoko ti a yan",
     superadmin: "Alakoso Agba", expired: "Ti Pari", expiresIn: "Pari ni", days: "ọjọ", expiryAlerts: "Ikilo Ipari",
     actionExecuted: "Iṣe ti pari", aiHelp: "Oluranlọwọ", clearChat: "Nu Wiregbe", applyAction: "Lo Iṣe", aiPromptPlaceholder: "Beere ohunkohun...",
     myPerformance: "Iṣẹ Mi",
@@ -303,7 +308,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     }
   },
   ig: {
-    dashboard: "Dashboard", pos: "Ebe Ire Ahịa", transactions: "Akụkọ Ire Ahịa", stock: "Ngwa Ahịa", debtors: "Ndị Ji Ụgwọ", settings: "Ntọala", giftCards: "Kaadị Onyinye",
+    dashboard: "Dashboard", pos: "Ebe Ire Ahịa", transactions: "Akụkọ Ire Ahịa", stock: "Ngwa Ahịa", stockSales: "Ire Ngwa Ahịa", debtors: "Ndị Ji Ụgwọ", settings: "Ntọala", giftCards: "Kaadị Onyinye",
     welcome: "Nnọọ", revenue: "Ego Bata", lowStock: "Ngwa Ahịa Dị Nta", totalDebt: "Ego Mmadụ Ji",
     salesTrends: "Ka Ahịa Si Aga", bestSellers: "Ndị Kacha Ere", categoryBreakdown: "Nkeji Ngwa Ahịa",
     searchProduct: "Chọọ ngwa ahịa...", allCategories: "Nkeji Niile", addProduct: "Tinye Ngwa Ahịa",
@@ -339,6 +344,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     exportSales: "Wepụta Ire Ahịa", exportInventory: "Wepụta Ngwa Ahịa", exportDebtors: "Wepụta Ndị Ji Ụgwọ",
     downloadCSV: "Budata CSV", printPDF: "Bipụta / PDF",
     today: "Taa", yesterday: "Nnyaa", thisWeek: "Izu A", thisMonth: "Ọnwa A", thisYear: "Afọ A",
+    customRange: "Họrọ Oge", unitsSold: "Ngwa E Rere", cartonsSold: "Katọn E Rere", totalSold: "Mkpokọta E Rere", productSales: "Ire Ngwa Ahịa", noProductSales: "Enweghị ire ngwa ahịa maka oge ahọpụtara",
     superadmin: "Onye Isi Ukwu", expired: "Emebiela", expiresIn: "Ga-emebi na", days: "ụbọchị", expiryAlerts: "Ịdọ Aka Na Ntị",
     actionExecuted: "Emere ya", aiHelp: "Onye Enyemaka", clearChat: "Hichaa", applyAction: "Mee Ya", aiPromptPlaceholder: "Jụọ m ihe ọbụla...",
     myPerformance: "Ọrụ M",
@@ -361,7 +367,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     }
   },
   ar: {
-    dashboard: "لوحة التحكم", pos: "نقطة البيع", transactions: "سجل المعاملات", stock: "المخزون", debtors: "المدينون", settings: "الإعدادات", giftCards: "بطاقات الهدايا",
+    dashboard: "لوحة التحكم", pos: "نقطة البيع", transactions: "سجل المعاملات", stock: "المخزون", stockSales: "مبيعات المخزون", debtors: "المدينون", settings: "الإعدادات", giftCards: "بطاقات الهدايا",
     welcome: "مرحباً", revenue: "الإيرادات", lowStock: "مخزون منخفض", totalDebt: "إجمالي الديون",
     salesTrends: "اتجاهات المبيعات", bestSellers: "الأكثر مبيعاً", categoryBreakdown: "توزيع الفئات",
     searchProduct: "بحث عن منتج...", allCategories: "جميع الفئات", addProduct: "إضافة منتج",
@@ -397,6 +403,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     exportSales: "تصدير المبيعات", exportInventory: "تصدير المخزون", exportDebtors: "تصدير الديون",
     downloadCSV: "تنزيل CSV", printPDF: "طباعة / PDF",
     today: "اليوم", yesterday: "أمس", thisWeek: "هذا الأسبوع", thisMonth: "هذا الشهر", thisYear: "هذا العام",
+    customRange: "نطاق مخصص", unitsSold: "الوحدات المباعة", cartonsSold: "الكراتين المباعة", totalSold: "إجمالي المباع", productSales: "مبيعات المنتجات", noProductSales: "لا توجد مبيعات منتجات للفترة المحددة",
     superadmin: "مشرف عام", expired: "منتهي الصلاحية", expiresIn: "ينتهي خلال", days: "أيام", expiryAlerts: "تنبيهات الانتهاء",
     actionExecuted: "تم التنفيذ", aiHelp: "المساعد الذكي", clearChat: "مسح المحادثة", applyAction: "تطبيق", aiPromptPlaceholder: "اسألني أي شيء...",
     myPerformance: "أدائي",
@@ -419,7 +426,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     }
   },
   fr: {
-    dashboard: "Tableau de bord", pos: "Caisse", transactions: "Historique", stock: "Stock", debtors: "Débiteurs", settings: "Paramètres", giftCards: "Cartes Cadeaux",
+    dashboard: "Tableau de bord", pos: "Caisse", transactions: "Historique", stock: "Stock", stockSales: "Ventes Stock", debtors: "Débiteurs", settings: "Paramètres", giftCards: "Cartes Cadeaux",
     welcome: "Bienvenue", revenue: "Revenus", lowStock: "Stock Faible", totalDebt: "Dette Totale",
     salesTrends: "Tendances Ventes", bestSellers: "Meilleures Ventes", categoryBreakdown: "Par Catégorie",
     searchProduct: "Rechercher...", allCategories: "Toutes Catégories", addProduct: "Ajouter Produit",
@@ -455,6 +462,7 @@ export const TRANSLATIONS: Record<Language, Record<string, any>> = {
     exportSales: "Exporter Ventes", exportInventory: "Exporter Stock", exportDebtors: "Exporter Débiteurs",
     downloadCSV: "Télécharger CSV", printPDF: "Imprimer / PDF",
     today: "Aujourd'hui", yesterday: "Hier", thisWeek: "Cette Semaine", thisMonth: "Ce Mois", thisYear: "Cette Année",
+    customRange: "Plage Personnalisée", unitsSold: "Unités Vendues", cartonsSold: "Cartons Vendus", totalSold: "Total Vendu", productSales: "Ventes Produits", noProductSales: "Aucune vente de produit pour la période sélectionnée",
     superadmin: "Super Admin", expired: "Expiré", expiresIn: "Expire dans", days: "jours", expiryAlerts: "Alertes Expiration",
     actionExecuted: "Action Exécutée", aiHelp: "Assistant Boutique", clearChat: "Effacer", applyAction: "Appliquer", aiPromptPlaceholder: "Demandez-moi...",
     myPerformance: "Ma Performance",
