@@ -425,7 +425,7 @@ export const Inventory: React.FC = () => {
                   <div className="text-center">
                     <span className="text-[9px] text-gray-500">{t('stock')}: </span>
                     <span className={`text-[9px] font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                      {Math.floor(p.totalUnits / p.unitsPerCarton)}c
+                      {p.stockCartons}c {p.stockUnits}u
                     </span>
                   </div>
                   {canEdit && (
@@ -490,12 +490,12 @@ export const Inventory: React.FC = () => {
                       <span className="text-[10px] text-gray-400 uppercase font-bold">{t('currentStock')}</span>
                       <div className="flex items-baseline gap-1">
                         <span className={`text-lg font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                          {Math.floor(p.totalUnits / p.unitsPerCarton)}
+                          {p.stockCartons}
                         </span>
                         <span className="text-xs text-gray-500 font-medium">ctn</span>
                         <span className="text-gray-300 mx-1">/</span>
                         <span className={`text-lg font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                           {p.totalUnits % p.unitsPerCarton}
+                           {p.stockUnits}
                         </span>
                         <span className="text-xs text-gray-500 font-medium">units</span>
                       </div>
@@ -560,7 +560,7 @@ export const Inventory: React.FC = () => {
                     <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">{p.category}</p>
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span>Barcode: {p.barcode || 'N/A'}</span>
-                      <span>Stock: {Math.floor(p.totalUnits / p.unitsPerCarton)}c {p.totalUnits % p.unitsPerCarton}u</span>
+                      <span>Stock: {p.stockCartons}c {p.stockUnits}u</span>
                       <span className={isLowStock ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>
                         {isLowStock ? 'Low Stock' : 'In Stock'}
                       </span>
@@ -648,7 +648,7 @@ export const Inventory: React.FC = () => {
                       <span className="block text-xs text-gray-400 uppercase font-semibold mb-1">Stock Level</span>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm font-bold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
-                          {Math.floor(p.totalUnits / p.unitsPerCarton)} Cartons, {p.totalUnits % p.unitsPerCarton} Units
+                          {p.stockCartons} Cartons, {p.stockUnits} Units
                         </span>
                         {isLowStock && <span className="text-xs text-red-600 font-bold">(Low Stock)</span>}
                       </div>
