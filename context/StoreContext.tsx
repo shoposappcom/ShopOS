@@ -1233,8 +1233,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : item.quantity;
           
         const cost = item.quantityType === 'carton' ? product.costPriceCarton : product.costPriceUnit;
-        const revenue = item.quantityType === 'carton' ? product.cartonPrice : product.unitPrice;
-        calculatedProfit += (revenue - cost) * item.quantity;
+        // Use actual selling price (custom price if set, otherwise use subtotal/quantity to get actual price)
+        const actualSellingPrice = item.customPrice !== undefined 
+          ? item.customPrice 
+          : (item.subtotal / item.quantity);
+        calculatedProfit += (actualSellingPrice - cost) * item.quantity;
         
         const newTotal = Math.max(0, product.totalUnits - unitsSold);
         
