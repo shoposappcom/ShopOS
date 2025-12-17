@@ -1015,22 +1015,62 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const editProduct = async (product: Product) => {
-    setState(prev => ({
-      ...prev,
-      products: prev.products.map(p => p.id === product.id ? product : p)
-    }));
+    console.log('📝 Editing product:', { id: product.id, name: product.name, stockCartons: product.stockCartons, stockUnits: product.stockUnits, totalUnits: product.totalUnits });
+    
+    setState(prev => {
+      const existingProduct = prev.products.find(p => p.id === product.id);
+      if (!existingProduct) {
+        console.error('❌ Product not found in state:', product.id);
+        return prev;
+      }
+      
+      // Merge with existing product to ensure all fields are preserved
+      const updatedProduct: Product = {
+        ...existingProduct,
+        ...product,
+        // Ensure totalUnits is correctly calculated
+        totalUnits: product.totalUnits,
+        stockCartons: product.stockCartons,
+        stockUnits: product.stockUnits,
+      };
+      
+      const updatedProducts = prev.products.map(p => p.id === product.id ? updatedProduct : p);
+      
+      console.log('✅ State updated:', { 
+        productId: product.id, 
+        oldTotalUnits: existingProduct.totalUnits,
+        newTotalUnits: updatedProduct.totalUnits,
+        oldStockCartons: existingProduct.stockCartons,
+        newStockCartons: updatedProduct.stockCartons,
+        oldStockUnits: existingProduct.stockUnits,
+        newStockUnits: updatedProduct.stockUnits
+      });
+      
+      return {
+        ...prev,
+        products: updatedProducts
+      };
+    });
     logActivity('EDIT_PRODUCT', `Edited product: ${product.name}`);
     
     // Sync to Supabase or queue for later
-    if (isValidUUID(state.settings?.shopId || '')) {
+    const shopId = state.settings?.shopId || '';
+    if (isValidUUID(shopId)) {
       if (canSyncToSupabase()) {
-        db.updateProduct(product.id, product).catch(err => {
-          console.error('Failed to sync product update:', err);
+        console.log('☁️ Syncing product update to Supabase...', { productId: product.id, totalUnits: product.totalUnits, stockCartons: product.stockCartons, stockUnits: product.stockUnits });
+        try {
+          await db.updateProduct(product.id, product);
+          console.log('✅ Product synced to Supabase successfully');
+        } catch (err) {
+          console.error('❌ Failed to sync product update:', err);
           queueOperation('UPDATE_PRODUCT', product, product.id);
-        });
+        }
       } else {
+        console.log('📴 Offline - queuing product update');
         queueOperation('UPDATE_PRODUCT', product, product.id);
       }
+    } else {
+      console.log('⚠️ Invalid shopId, skipping Supabase sync');
     }
   };
 

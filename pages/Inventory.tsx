@@ -192,7 +192,12 @@ export const Inventory: React.FC = () => {
       }
     }
     
+    const stockCartons = Number(formData.stockCartons) || 0;
+    const stockUnits = Number(formData.stockUnits) || 0;
+    const calculatedTotalUnits = stockCartons * unitsPerCarton + stockUnits;
+    
     const productData: Product = {
+      ...(editingProduct || {}),
       id: productId,
       shopId: shopId,
       name: formData.name,
@@ -207,16 +212,26 @@ export const Inventory: React.FC = () => {
       costPriceUnit: calculateUnitCost(cartonCost, unitsPerCarton),
       unitsPerCarton: unitsPerCarton,
       
-      stockCartons: Number(formData.stockCartons) || 0,
-      stockUnits: Number(formData.stockUnits) || 0,
+      stockCartons: stockCartons,
+      stockUnits: stockUnits,
       minStockLevel: Number(formData.minStockLevel) || 10,
       
-      totalUnits: (Number(formData.stockCartons) || 0) * unitsPerCarton + (Number(formData.stockUnits) || 0),
+      totalUnits: calculatedTotalUnits,
 
       batchNumber: formData.batchNumber,
       expiryDate: formData.expiryDate,
-      createdAt: editingProduct?.createdAt || new Date().toISOString()
+      createdAt: editingProduct?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
+
+    console.log('💾 Saving product:', { 
+      isEditing: !!editingProduct, 
+      productId, 
+      stockCartons, 
+      stockUnits, 
+      unitsPerCarton, 
+      totalUnits: calculatedTotalUnits 
+    });
 
     if (editingProduct) {
       editProduct(productData);
