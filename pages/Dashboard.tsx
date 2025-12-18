@@ -81,7 +81,44 @@ export const Dashboard: React.FC = () => {
   }, [allSales, filterStart, filterEnd, includeUnpaidCredits]);
 
   const totalRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
-  const grossProfit = filteredSales.reduce((acc, s) => acc + (s.profit || 0), 0);
+  
+  // Recalculate profit on-the-fly from sale items to ensure accuracy (handles custom prices and fixes old incorrect profit values)
+  const grossProfit = useMemo(() => {
+    let totalProfit = 0;
+    filteredSales.forEach(sale => {
+      let saleProfit = 0;
+      sale.items.forEach(item => {
+        const product = shopProducts.find(p => p.id === item.id);
+        if (product) {
+          const cost = item.quantityType === 'carton' ? product.costPriceCarton : product.costPriceUnit;
+          // Use actual selling price (custom price if set, otherwise use subtotal/quantity to get actual price)
+          const actualSellingPrice = item.customPrice !== undefined 
+            ? item.customPrice 
+            : (item.subtotal / item.quantity);
+          const itemProfit = (actualSellingPrice - cost) * item.quantity;
+          saleProfit += itemProfit;
+        } else {
+          // Product not found - skip this item (product may have been deleted)
+          // This prevents errors but also means we don't calculate profit for deleted products
+        }
+      });
+      totalProfit += saleProfit;
+    });
+    
+    // Debug logging (remove in production if needed)
+    if (filteredSales.length > 0) {
+      const calculatedRevenue = filteredSales.reduce((acc, s) => acc + s.total, 0);
+      console.log(`📊 Profit calculation for ${dateFilter}:`, {
+        filteredSalesCount: filteredSales.length,
+        calculatedRevenue,
+        calculatedGrossProfit: totalProfit,
+        filterStart: filterStart.toISOString(),
+        filterEnd: filterEnd.toISOString()
+      });
+    }
+    
+    return totalProfit;
+  }, [filteredSales, shopProducts, dateFilter, filterStart, filterEnd]);
   
   // 2. EXPENSES DATA (Filtered by shopId and date)
   const filteredExpenses = useMemo(() => {
