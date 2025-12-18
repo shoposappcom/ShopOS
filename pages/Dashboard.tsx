@@ -92,7 +92,11 @@ export const Dashboard: React.FC = () => {
       sale.items.forEach(item => {
         const product = shopProducts.find(p => p.id === item.id);
         if (product) {
-          const cost = item.quantityType === 'carton' ? product.costPriceCarton : product.costPriceUnit;
+          // Calculate cost based on quantity type - recalculate unit cost from carton cost to ensure accuracy
+          const cost = item.quantityType === 'carton' 
+            ? product.costPriceCarton 
+            : (product.unitsPerCarton > 0 ? product.costPriceCarton / product.unitsPerCarton : product.costPriceUnit || 0);
+          
           // Use actual selling price (custom price if set, otherwise use subtotal/quantity to get actual price)
           const actualSellingPrice = item.customPrice !== undefined 
             ? item.customPrice 
