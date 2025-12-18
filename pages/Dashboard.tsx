@@ -65,7 +65,11 @@ export const Dashboard: React.FC = () => {
   const filteredSales = useMemo(() => {
       return allSales.filter(s => {
           const d = new Date(s.date);
-          const inDateRange = d >= filterStart && d <= filterEnd;
+          // Normalize date to compare only date part (ignore time)
+          const saleDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          const startDate = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate());
+          const endDate = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate());
+          const inDateRange = saleDate >= startDate && saleDate <= endDate;
           
           // Exclude unpaid credit sales in default view
           if (!includeUnpaidCredits && s.isCredit === true) {
@@ -84,7 +88,11 @@ export const Dashboard: React.FC = () => {
       return shopExpenses.filter(e => {
           if (e.isArchived) return false;
           const d = new Date(e.date);
-          return d >= filterStart && d <= filterEnd;
+          // Normalize date to compare only date part (ignore time)
+          const expenseDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          const startDate = new Date(filterStart.getFullYear(), filterStart.getMonth(), filterStart.getDate());
+          const endDate = new Date(filterEnd.getFullYear(), filterEnd.getMonth(), filterEnd.getDate());
+          return expenseDate >= startDate && expenseDate <= endDate;
       });
   }, [shopExpenses, filterStart, filterEnd]);
   
