@@ -85,7 +85,7 @@ export const Dashboard: React.FC = () => {
   // Recalculate profit on-the-fly from sale items to ensure accuracy (handles custom prices and fixes old incorrect profit values)
   const grossProfit = useMemo(() => {
     let totalProfit = 0;
-    const profitBreakdown: Array<{productName: string, sellingPrice: number, cost: number, quantity: number, profit: number}> = [];
+    const profitBreakdown: Array<{productName: string, sellingPrice: number, cost: number, quantity: number, profit: number, quantityType: string, costPriceCarton: number, costPriceUnit: number}> = [];
     
     filteredSales.forEach(sale => {
       let saleProfit = 0;
@@ -107,7 +107,10 @@ export const Dashboard: React.FC = () => {
               sellingPrice: actualSellingPrice,
               cost: cost,
               quantity: item.quantity,
-              profit: itemProfit
+              profit: itemProfit,
+              quantityType: item.quantityType,
+              costPriceCarton: product.costPriceCarton,
+              costPriceUnit: product.costPriceUnit
             });
           }
         } else {
