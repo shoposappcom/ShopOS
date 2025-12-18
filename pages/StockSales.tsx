@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { Sale, Product } from '../types';
 import { Search, Calendar, TrendingUp, Package, BarChart3, Filter } from 'lucide-react';
@@ -12,6 +12,7 @@ interface ProductSalesData {
   unitsSold: number;
   cartonsSold: number;
   totalRevenue: number;
+  totalProfit: number;
   unitsPerCarton?: number;
 }
 
@@ -67,8 +68,9 @@ export const StockSales: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'units' | 'cartons' | 'revenue'>('revenue');
+  const [sortBy, setSortBy] = useState<'name' | 'units' | 'cartons' | 'revenue' | 'profit'>('profit');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
 
   if (!currentUser || !settings) return null;
 
@@ -122,13 +124,15 @@ export const StockSales: React.FC = () => {
         const productId = item.id || (item as any).productId;
         if (!productId) return; // Skip items without product ID
         
+        const product = shopProducts.find(p => p.id === productId);
         const existing = productMap.get(productId) || {
           productId: productId,
           productName: item.name || (item as any).productName || 'Unknown Product',
           unitsSold: 0,
           cartonsSold: 0,
           totalRevenue: 0,
-          unitsPerCarton: shopProducts.find(p => p.id === productId)?.unitsPerCarton
+          totalProfit: 0,
+          unitsPerCarton: product?.unitsPerCarton
         };
 
         if (item.quantityType === 'unit') {
@@ -141,6 +145,36 @@ export const StockSales: React.FC = () => {
         }
 
         existing.totalRevenue += item.subtotal || 0;
+        
+        // Calculate profit for this item
+        if (product) {
+          // Calculate cost based on quantity type
+          // Use the same logic as Dashboard to ensure consistency
+          let cost: number;
+          if (item.quantityType === 'carton') {
+            cost = product.costPriceCarton;
+          } else {
+            // For units, calculate from carton cost (matching Dashboard logic)
+            // This ensures we use the most reliable source of truth
+            if (product.unitsPerCarton > 0 && product.costPriceCarton >= 0) {
+              cost = product.costPriceCarton / product.unitsPerCarton;
+            } else if (product.costPriceUnit && product.costPriceUnit > 0) {
+              // Fallback to stored costPriceUnit if unitsPerCarton is invalid
+              cost = product.costPriceUnit;
+            } else {
+              cost = 0;
+            }
+          }
+          
+          // Use actual selling price (custom price if set, otherwise use subtotal/quantity to get actual price)
+          const actualSellingPrice = item.customPrice !== undefined 
+            ? item.customPrice 
+            : (item.subtotal / item.quantity);
+          
+          const itemProfit = (actualSellingPrice - cost) * item.quantity;
+          existing.totalProfit += itemProfit;
+        }
+        
         productMap.set(productId, existing);
       });
     });
@@ -152,6 +186,11 @@ export const StockSales: React.FC = () => {
   const productSales = useMemo(() => {
     return aggregateProductSales(shopSales, dateRange);
   }, [shopSales, dateRange, currentUser.role, currentUser.id, shopProducts]);
+
+  // Reset selected products when date filter changes
+  useEffect(() => {
+    setSelectedProducts(new Set());
+  }, [dateFilter, customStartDate, customEndDate]);
 
   // Filter by search term
   const filteredProductSales = productSales.filter(ps =>
@@ -173,6 +212,9 @@ export const StockSales: React.FC = () => {
         break;
       case 'revenue':
         comparison = a.totalRevenue - b.totalRevenue;
+        break;
+      case 'profit':
+        comparison = a.totalProfit - b.totalProfit;
         break;
     }
     return sortOrder === 'asc' ? comparison : -comparison;
@@ -206,7 +248,7 @@ export const StockSales: React.FC = () => {
     return parts.length > 0 ? parts.join(' or ') : '0';
   };
 
-  const handleSort = (column: 'name' | 'units' | 'cartons' | 'revenue') => {
+  const handleSort = (column: 'name' | 'units' | 'cartons' | 'revenue' | 'profit') => {
     if (sortBy === column) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -215,9 +257,31 @@ export const StockSales: React.FC = () => {
     }
   };
 
+  const handleSelectAll = () => {
+    if (selectedProducts.size === sortedProductSales.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(sortedProductSales.map(ps => ps.productId)));
+    }
+  };
+
+  const handleToggleProduct = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
   const totalRevenue = sortedProductSales.reduce((sum, ps) => sum + ps.totalRevenue, 0);
   const totalUnits = sortedProductSales.reduce((sum, ps) => sum + ps.unitsSold, 0);
   const totalCartons = sortedProductSales.reduce((sum, ps) => sum + ps.cartonsSold, 0);
+  const totalProfit = sortedProductSales.reduce((sum, ps) => sum + ps.totalProfit, 0);
+  const selectedProfit = sortedProductSales
+    .filter(ps => selectedProducts.has(ps.productId))
+    .reduce((sum, ps) => sum + ps.totalProfit, 0);
 
   return (
     <div className="space-y-6 pb-20">
@@ -318,7 +382,7 @@ export const StockSales: React.FC = () => {
       </div>
 
       {/* Summary Statistics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
           <div className="p-3 rounded-xl bg-blue-50 text-blue-600 shrink-0">
             <Package className="w-6 h-6" />
@@ -354,6 +418,23 @@ export const StockSales: React.FC = () => {
             </h3>
           </div>
         </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200 flex items-center gap-4">
+          <div className={`p-3 rounded-xl shrink-0 ${totalProfit >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+            <TrendingUp className="w-6 h-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate">{t('profit') || 'Profit'}</p>
+            <h3 className={`text-2xl font-bold mt-1 truncate ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {settings.currency}{totalProfit.toLocaleString()}
+            </h3>
+            {selectedProducts.size > 0 && (
+              <p className="text-xs text-gray-500 mt-1">
+                Selected: {settings.currency}{selectedProfit.toLocaleString()}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -381,6 +462,15 @@ export const StockSales: React.FC = () => {
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                 <tr>
+                  <th className="p-4 w-12">
+                    <input
+                      type="checkbox"
+                      checked={sortedProductSales.length > 0 && selectedProducts.size === sortedProductSales.length}
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      title="Select all products"
+                    />
+                  </th>
                   <th className="p-4">
                     <button
                       onClick={() => handleSort('name')}
@@ -428,11 +518,30 @@ export const StockSales: React.FC = () => {
                       )}
                     </button>
                   </th>
+                  <th className="p-4">
+                    <button
+                      onClick={() => handleSort('profit')}
+                      className="flex items-center gap-2 hover:text-gray-700"
+                    >
+                      {t('profit') || 'Profit/Loss'}
+                      {sortBy === 'profit' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {sortedProductSales.map((productSale) => (
-                  <tr key={productSale.productId} className="hover:bg-gray-50 transition-colors">
+                  <tr key={productSale.productId} className={`hover:bg-gray-50 transition-colors ${selectedProducts.has(productSale.productId) ? 'bg-blue-50' : ''}`}>
+                    <td className="p-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.has(productSale.productId)}
+                        onChange={() => handleToggleProduct(productSale.productId)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="p-4 font-semibold text-gray-900">
                       {productSale.productName}
                     </td>
@@ -447,6 +556,9 @@ export const StockSales: React.FC = () => {
                     </td>
                     <td className="p-4 font-bold text-gray-900">
                       {settings.currency}{productSale.totalRevenue.toLocaleString()}
+                    </td>
+                    <td className={`p-4 font-bold ${productSale.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {productSale.totalProfit >= 0 ? '+' : ''}{settings.currency}{productSale.totalProfit.toLocaleString()}
                     </td>
                   </tr>
                 ))}
