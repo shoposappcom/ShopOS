@@ -85,6 +85,8 @@ export const Dashboard: React.FC = () => {
   // Recalculate profit on-the-fly from sale items to ensure accuracy (handles custom prices and fixes old incorrect profit values)
   const grossProfit = useMemo(() => {
     let totalProfit = 0;
+    const profitBreakdown: Array<{productName: string, sellingPrice: number, cost: number, quantity: number, profit: number}> = [];
+    
     filteredSales.forEach(sale => {
       let saleProfit = 0;
       sale.items.forEach(item => {
@@ -97,6 +99,17 @@ export const Dashboard: React.FC = () => {
             : (item.subtotal / item.quantity);
           const itemProfit = (actualSellingPrice - cost) * item.quantity;
           saleProfit += itemProfit;
+          
+          // Track for debugging
+          if (itemProfit < 0 || actualSellingPrice < cost) {
+            profitBreakdown.push({
+              productName: product.name,
+              sellingPrice: actualSellingPrice,
+              cost: cost,
+              quantity: item.quantity,
+              profit: itemProfit
+            });
+          }
         } else {
           // Product not found - skip this item (product may have been deleted)
           // This prevents errors but also means we don't calculate profit for deleted products
@@ -113,8 +126,14 @@ export const Dashboard: React.FC = () => {
         calculatedRevenue,
         calculatedGrossProfit: totalProfit,
         filterStart: filterStart.toISOString(),
-        filterEnd: filterEnd.toISOString()
+        filterEnd: filterEnd.toISOString(),
+        negativeProfitItems: profitBreakdown.length > 0 ? profitBreakdown.slice(0, 5) : 'none'
       });
+      
+      // Log detailed breakdown if profit is suspiciously negative
+      if (totalProfit < 0 && Math.abs(totalProfit) > calculatedRevenue) {
+        console.warn('⚠️ Large negative profit detected. Items with negative profit:', profitBreakdown);
+      }
     }
     
     return totalProfit;
